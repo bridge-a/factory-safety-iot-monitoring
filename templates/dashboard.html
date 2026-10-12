@@ -1,0 +1,35 @@
+{% from 'components.html' import icon, video, gauges, linkage, risk, trend, event_table %}
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="control-token" content="{{ control_token }}"><meta name="color-scheme" content="light">
+<title>{{ page_title }} · 工厂安全生产监控平台</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% if page == 'alerts' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/alerts.css') }}">{% elif page != 'overview' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}">{% endif %}
+<script defer src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script><script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script></head>
+<body data-page="{{ page }}">
+<aside class="sidebar">
+<a class="brand" href="/" aria-label="工厂监控首页"><span class="brand-mark">{{ icon('factory') }}</span><strong>工厂安全监控</strong><small>FACTORY MONITOR</small></a>
+<nav aria-label="主导航">{% for key, title in titles.items() %}<a href="{{ '/' if key == 'overview' else '/' + key }}" aria-label="{{ title }}" title="{{ title }}" class="nav-item {{ 'active' if page == key else '' }}" {% if page == key %}aria-current="page"{% endif %}>{{ icon(key) }}<span>{{ title }}</span></a>{% endfor %}</nav>
+<div class="sidebar-scene" aria-hidden="true"><svg viewBox="0 0 180 165"><path d="M0 147h180M12 147V68l40 28V63l49 30V23h21v74l46-22v72M101 23V10h21v13M22 126h15v-12H22Zm41 0h15v-12H63Zm69 0h15v-12h-15ZM5 158h168M12 68V51h16v28"/></svg></div>
+<div class="sidebar-footer"><span class="dot"></span>工厂模拟区 · 01<small>物联网系统综合课程设计</small></div>
+</aside>
+<main>
+{% if page == 'alerts' %}
+<header class="alerts-topbar"><span class="site-location">工厂模拟区 <span class="location-divider">/</span> 01 号采集点</span><div class="service-status"><span id="connection" class="connection"><i class="dot gray"></i>正在连接</span>{% include 'partials/risk_indicator.html' %}<span id="modeLabel" class="mode-tag">正在读取模式</span><a href="/devices" aria-label="查看设备状态" title="设备状态">{{ icon('devices') }}</a></div></header>
+{% else %}
+<header class="top-header"><div class="title-block"><h1>工厂安全生产监控平台</h1><p>{{ page_title }}<span>环境感知 · 异常预警 · 联动通知</span></p></div>
+<div class="status-console"><div><span>ESP32</span><strong id="espStatus">待接入</strong></div><div><span>摄像头</span><strong class="muted">待接入</strong></div><div><span>数据库</span><strong id="databaseStatus">检测中</strong></div><div><span>MQTT</span><strong id="mqttStatus">检测中</strong></div><div><span>邮件</span><strong id="mailStatus">未启用</strong></div></div>
+<div class="header-risk"><span>综合风险</span><strong id="riskLabel">等待数据</strong></div>
+<div class="header-clock"><span id="date">--</span><time id="clock">--:--:--</time></div></header>
+<div class="source-bar"><span id="connection" class="connection"><i class="dot gray"></i>正在连接</span><span class="source-separator"></span><strong id="modeLabel">正在读取模式</strong><span id="modeDescription">数据均标注来源</span><a href="/simulation">切换模式 ›</a></div>
+{% endif %}
+
+{% if page == 'overview' %}
+<div class="overview-grid">{{ video() }}{{ gauges(metrics) }}{{ linkage() }}{{ risk() }}{{ trend(metrics) }}</div>
+{% else %}
+<div class="workspace-page">{% include 'pages/' ~ page ~ '.html' %}</div>
+{% endif %}
+<footer><span>工厂安全生产物联网监控网络 · 玻璃罩实验场景</span><span>CO₂ 用于气体异常演示 · 烟雾为相对读数</span></footer>
+</main><div class="toasts" id="toasts" aria-live="assertive"></div>
+<dialog id="eventDialog"><div class="dialog-heading"><h2>告警详情</h2><button id="closeDialog" aria-label="关闭详情">×</button></div><div id="eventDetails"></div></dialog>
+</body></html>

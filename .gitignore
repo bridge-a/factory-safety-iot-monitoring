@@ -1,0 +1,52 @@
+# Local configuration and credentials
+/mail.ini
+/mail.*.ini
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.p12
+
+# Runtime data, logs and test outputs
+/data/
+/artifacts/
+/.test-tmp/
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.log
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments and editor settings
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Model weights, recordings and archives are not part of this software release
+*.pt
+*.pth
+*.onnx
+*.mp4
+*.avi
+*.zip
+
+# Local museum-project references; unused by this application's entry point
+/lstm_predict.py
+/model_def.py
+/static/assets/
+
+# Local UI iteration notes; public release validation is in docs/VALIDATION.md
+/UI_DESIGN_NOTES.md
+/UI_IMPROVEMENT_PLAN.md
+/VALIDATION.md

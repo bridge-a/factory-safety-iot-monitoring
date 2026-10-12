@@ -1,0 +1,422 @@
+"use strict";
+(() => {
+  const $ = id => document.getElementById(id);
+  const page = document.body.dataset.page;
+  const set = (id, value) => {if ($(id)) $(id).textContent = value;};
+  const levels = {green:"正常",yellow:"黄色预警",red:"红色报警",gray:"数据待接入"};
+  const mails = {disabled:"未启用",demo_blocked:"模拟邮件关闭",pending:"待发送",sending:"发送中",sent:"已提交",failed:"发送失败",not_required:"无需发送"};
+  const modes = {hybrid:"真实环境＋模拟烟雾",demo:"全模拟演示",live:"全部真实采集"};
+  const sources = {simulation:"模拟数据",mqtt:"实际采集",missing:"待接入"};
+  const types = {environment:"环境异常",smoke:"烟雾异常",vision:"明火异常"};
+  const scenarios = {normal:"正常",rising:"逐渐升高",warning:"预警",alarm:"报警",recovery:"恢复",disconnected:"烟雾断线"};
+  const token = document.querySelector('meta[name="control-token"]').content;
+  let status = null, thresholds = {}, currentMode = null, eventCursor = null, eventStream = null;
+  let minutes = 10, selectedHistoryMode = null, customRange = null, historyWindow = null, historyPoints = [], stats = null;
+  let chart = null, historyVersion = 0, lastHistoryAt = 0, lastPageEventsAt = 0;
+  let controlBusy = false, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
+  let appliedAlertParams = new URLSearchParams();
+  try {const saved=JSON.parse(sessionStorage.getItem("factory-event-cursor")); if(saved && Number.isInteger(saved.cursor)){eventCursor=saved.cursor;eventStream=saved.stream;}} catch (_) {}
+  const timeText = (ts, full=false) => ts ? new Date(ts*1000).toLocaleString("zh-CN",{
+    ...(full?{year:"numeric",month:"2-digit",day:"2-digit"}:{}),hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false
+  }) : "--:--:--";
+  const numberText = (value, key) => value == null ? "--" : Number(value).toFixed(["temp_c","rh"].includes(key)?1:0);
+  const node = (tag, text, cls) => {const el=document.createElement(tag);el.textContent=text;if(cls)el.className=cls;return el;};
+  function saveCursor(){try{sessionStorage.setItem("factory-event-cursor",JSON.stringify({cursor:eventCursor,stream:eventStream}));}catch(_){}}
+  async function api(path, options={}) {
+    const response=await fetch(path,{...options,signal:AbortSignal.timeout(9000)});
+    if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error || "请求失败，请重试");}
+    return response.json();
+  }
+  function connection(text, state) {
+    if (!$("connection")) return;
+    $("connection").className="connection "+state;
+    $("connection").replaceChildren(node("i","","dot "+state),document.createTextNode(text));
+  }
+  function renderRiskIndicator(level, label, description){
+    const indicator=$("riskIndicator");if(!indicator)return;
+    indicator.dataset.level=level;
+    if($("riskIndicatorText").textContent!==label)set("riskIndicatorText",label);
+    indicator.title=description;
+  }
+  function markOffline(message="后台连接中断") {
+    connection(message,"red");
+    renderRiskIndicator("gray","状态未知",message+"，无法确认当前环境风险");
+    ["espStatus","mqttStatus","databaseStatus","mailStatus"].forEach(id=>set(id,"未知"));
+    set("riskLabel","状态未知");if($("riskLabel"))$("riskLabel").style.color="var(--muted)";
+    set("riskCardLevel","状态未知");set("riskReason","后台采样不可用，请检查连接");
+    set("riskAdvice","处置提示：恢复数据连接后重新判断");set("riskTime","--:--:--");
+    if($("riskCard"))$("riskCard").className="current-risk gray";
+    set("popupState","连接异常");set("mailLinkState","状态未知");set("simValue","--");set("simState","等待后台恢复");
+    set("simSamplingStatus","连接中断");
+    if($("simIndicator"))$("simIndicator").style.width="0%";
+    if($("simReadingPanel"))$("simReadingPanel").dataset.level="gray";
+    document.querySelectorAll("[data-metric]").forEach(card=>{
+      card.dataset.level="gray";card.querySelector('[data-role="value"]').textContent="--";
+      card.querySelector('[data-role="state"]').textContent="状态未知";
+      card.querySelector('[data-role="state"]').className="metric-state gray";
+      card.querySelector('[data-role="source"]').textContent="连接中断";
+      card.querySelector('[data-role="source"]').className="source-tag";
+      card.querySelector(".gauge-progress").style.strokeDasharray="0 100";
+      card.querySelector('[data-role="time"]').textContent="--:--:--";
+    });
+    if(page==="devices"){
+      ["deviceEsp","deviceName","deviceReceived","deviceMqtt","deviceMail","deviceDemoMail","queuePending","queueResult"].forEach(id=>set(id,"未知"));
+      $("deviceRows").replaceChildren();
+      const row=node("tr",""),cell=node("td","后台连接中断，无法确认设备状态","empty");cell.colSpan=5;row.append(cell);$("deviceRows").append(row);
+    }
+  }
+  function renderStatus(data) {
+    status=data;thresholds=data.thresholds || thresholds;
+    if(currentMode!==data.mode) {
+      currentMode=data.mode;lastPageEventsAt=0;
+      if(page==="overview" || !selectedHistoryMode){selectedHistoryMode=data.mode;historyPoints=[];stats=null;historyVersion++;lastHistoryAt=0;}
+      if($("historyMode") && !$("historyMode").dataset.initialized){$("historyMode").value=data.mode;$("historyMode").dataset.initialized="1";}
+    }
+    set("modeLabel",modes[data.mode]);
+    set("modeDescription",data.mode==="demo"?"所有数值均为模拟，仅用于功能演示":data.mode==="hybrid"?"烟雾模拟；其余指标以实际上报为准":"仅显示有效的实际传感器读数");
+    if($("modeSelect"))$("modeSelect").value=data.mode;
+    set("scenarioLabel",scenarios[data.scenario]);
+    document.querySelectorAll("[data-scenario]").forEach(button=>{
+      button.classList.toggle("selected",data.mode!=="live"&&button.dataset.scenario===data.scenario);
+      button.setAttribute("aria-pressed",String(data.mode!=="live"&&button.dataset.scenario===data.scenario));
+      button.disabled=data.mode==="live"||controlBusy;
+    });
+    set("controlHint",data.mode==="live"?"真实采集模式已关闭模拟注入。":"模拟数据通过后台存储和告警规则处理，关闭网页后继续运行。");
+    if(!data.sample || !data.runtime_online){markOffline(data.error || "等待后台采样");return;}
+    const sample=data.sample;
+    renderRiskIndicator(sample.level,sample.level==="gray"?"数据不完整":levels[sample.level],
+      "当前监测状态，依据"+(modes[data.mode]||data.mode)+"数据。"+
+      (sample.missing?.length?"缺少有效数据："+sample.missing.join("、"):"各环境指标均有有效读数"));
+    connection(notificationsOnline?"后台运行中":"告警读取异常",notificationsOnline?"green":"red");
+    set("espStatus",sample.esp32_online?"在线":"未连接");set("mqttStatus",data.mqtt.connected?"已连接":"未连接");
+    set("databaseStatus","正常");
+    const mailText=data.mail.config_error?"配置有误":data.mail.enabled?"已启用":"未启用";
+    set("mailStatus",mailText);set("mailLinkState",mailText);
+    set("popupState",notificationsOnline?"监听中":"读取异常");
+    set("linkageNote",data.mail.enabled&&!data.mail.allow_demo?"模拟事件的邮件通知已关闭。":"后台持续监测；声光设备待实机联调。");
+    set("riskLabel",levels[sample.level]);if($("riskLabel"))$("riskLabel").style.color=({red:"var(--red)",yellow:"var(--yellow)",green:"var(--teal)",gray:"var(--muted)"})[sample.level];
+    set("envDevice",data.mode==="demo"?"采集节点：全模拟演示":sample.hardware_device || "采集节点：待接入");
+    document.querySelectorAll("[data-metric]").forEach(card=>{
+      const key=card.dataset.metric,value=sample[key],source=sample.sources[key],level=sample.channels[key].level;
+      card.dataset.level=level;card.querySelector('[data-role="value"]').textContent=numberText(value,key);
+      const tag=card.querySelector('[data-role="source"]');tag.textContent=sources[source];tag.className="source-tag "+source;
+      const state=card.querySelector('[data-role="state"]');state.textContent=value==null?"等待有效数据":level==="green"?"正常":level==="red"?"报警":"预警";state.className="metric-state "+level;
+      card.querySelector('[data-role="time"]').textContent=value==null?"--:--:--":timeText(sample.ts);
+      const ratio=value==null?0:Math.max(0,Math.min(100,(value-Number(card.dataset.min))/(Number(card.dataset.max)-Number(card.dataset.min))*100));
+      card.querySelector(".gauge-progress").style.strokeDasharray=ratio+" 100";
+    });
+    if($("riskCard")){
+      $("riskCard").className="current-risk "+sample.level;
+      set("riskCardLevel",levels[sample.level]);set("riskTime",timeText(sample.ts));
+      const abnormal=Object.entries(sample.channels).filter(([,v])=>["red","yellow"].includes(v.level));
+      set("riskSource",abnormal.length?abnormal.map(([key])=>thresholds[key].label).join("、"):sample.missing.length?"数据有效性":"环境监测");
+      set("riskReason",abnormal.length?abnormal.map(([,v])=>v.reason).join("；"):sample.missing.length?sample.missing.join("、")+"暂无有效数据":"当前有效数据在演示阈值范围内");
+      set("riskAdvice",abnormal.length?"处置提示：核查异常来源与现场情况。":sample.missing.length?"处置提示：检查传感器与数据连接。":"处置提示：继续监测环境变化。");
+    }
+    set("simValue",numberText(sample.smoke_raw,"smoke_raw"));
+    set("simState",sample.smoke_raw==null?"烟雾数据无效":(sources[sample.sources.smoke_raw]||"")+" · "+levels[sample.channels.smoke_raw.level]);
+    if(page==="simulation"){
+      set("simSamplingStatus",sample.smoke_raw==null?"数据待接入":"后台采样");
+      set("simWarning",thresholds.smoke_raw.yellow);set("simAlarm",thresholds.smoke_raw.red);
+      $("simReadingPanel").dataset.level=sample.channels.smoke_raw.level;
+      $("simIndicator").style.width=(sample.smoke_raw==null?0:Math.max(0,Math.min(100,sample.smoke_raw/4095*100)))+"%";
+    }
+    if(page==="devices")renderDevices(data);
+  }
+  function renderDevices(data) {
+    const sample=data.sample;
+    set("deviceEsp",sample.esp32_online?"在线":"未连接");
+    set("deviceName",sample.hardware_device||"未收到设备报文");
+    set("deviceReceived",timeText(sample.received_at,true));set("deviceMqtt",data.mqtt.detail);
+    set("deviceMail",data.mail.config_error?"配置有误":data.mail.enabled?"后台邮件已启用":"未启用");
+    set("deviceDemoMail",data.mail.allow_demo?"已允许（邮件带模拟标记）":"已关闭");
+    const rows=[
+      ["SHT31","温度",numberText(sample.temp_c,"temp_c")+" °C",sources[sample.sources.temp_c],"与湿度共享 I²C 传感器"],
+      ["SHT31","相对湿度",numberText(sample.rh,"rh")+" %RH",sources[sample.sources.rh],"需使用未缩放的实际读数"],
+      ["SCD41","CO₂",numberText(sample.co2_ppm,"co2_ppm")+" ppm",sources[sample.sources.co2_ppm],"用于气体异常演示"],
+      ["MQ-2","烟雾",numberText(sample.smoke_raw,"smoke_raw")+" ADC",sources[sample.sources.smoke_raw],"相对读数；待供电、分压与预热联调"],
+      ["BH1750","光照（辅助）",sample.lux==null?"--":sample.lux.toFixed(1)+" lux",data.mode==="demo"?"模拟数据":sample.lux==null?"待接入":"实际采集","不参与当前安全告警"],
+      ["USB 摄像头","明火检测","--","待接入","摄像头、模型均未连接"],
+      ["蜂鸣器 / LED","声光报警","--","待接线联调","页面无法确认实物是否动作"]
+    ];
+    $("deviceRows").replaceChildren(...rows.map((row,index)=>{
+      const tr=node("tr",""),name=node("td","");
+      name.append(node("strong",row[0]),node("small",index<5?"环境传感器":index===5?"视觉采集":"告警执行"));tr.append(name);
+      row.slice(1).forEach((value,column)=>{
+        const td=node("td","");
+        if(column===2)td.append(node("span",value,"status-badge "+(value==="模拟数据"?"simulation":value==="实际采集"?"mqtt":"neutral")));
+        else td.textContent=value;
+        tr.append(td);
+      });return tr;
+    }));
+  }
+  function historyParams(){
+    const params=new URLSearchParams({mode:selectedHistoryMode||currentMode||"hybrid"});
+    if(customRange){params.set("from",customRange.from);params.set("to",customRange.to);}else params.set("minutes",minutes);
+    return params;
+  }
+  function selectedMetric(){return $("chartMetric")?.value || "smoke_raw";}
+  function updateHistoryStats(){
+    if(!stats || !$("statTotal"))return;
+    const key=selectedMetric(),item=stats.metrics[key],rule=thresholds[key];
+    set("statTotal",stats.total);set("statValid",item.valid+" 条有效 / "+(stats.total-item.valid)+" 条无效");
+    set("statMin",numberText(item.min,key));set("statMax",numberText(item.max,key));set("statAvg",item.avg==null?"--":item.avg.toFixed(1));
+    document.querySelectorAll(".statUnit").forEach(el=>el.textContent=rule.unit);
+  }
+  function drawChart(){
+    if(!$("historyChart"))return;
+    if(!window.echarts){$("historyChart").textContent="图表组件未加载，请刷新页面";return;}
+    if(!chart)chart=echarts.init($("historyChart"));
+    const key=selectedMetric(),rule=thresholds[key];if(!rule)return;
+    chart.setOption({animation:false,textStyle:{fontFamily:'"Microsoft YaHei",sans-serif'},
+      grid:{left:55,right:32,top:25,bottom:28},
+      tooltip:{trigger:"axis",valueFormatter:value=>value==null?"无有效数据":Number(value).toFixed(1)+" "+rule.unit},
+      xAxis:{type:"time",min:historyWindow?historyWindow.since*1000:undefined,max:historyWindow?historyWindow.until*1000:undefined,axisLine:{lineStyle:{color:"#dce5d4"}},axisTick:{show:false},axisLabel:{color:"#899b7c",fontSize:10,hideOverlap:true,formatter:value=>new Date(value).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",hour12:false})}},
+      yAxis:{type:"value",min:range=>Math.min(0,Math.floor(range.min||0)),max:range=>Math.ceil(Math.max(range.max||0,rule.red)*1.12),name:rule.unit,nameTextStyle:{color:"#99a38f",fontSize:9},axisLabel:{color:"#94a087",fontSize:9},splitLine:{lineStyle:{color:"#e5ebdf",type:"dashed"}}},
+      series:[{name:rule.label,type:"line",showSymbol:historyPoints.length<12,symbolSize:4,connectNulls:false,
+        data:historyPoints.map(row=>[row.ts*1000,row[key]]),lineStyle:{width:2,color:"#497f61"},itemStyle:{color:"#497f61"},areaStyle:{color:"#a1bd8b",opacity:.10},
+        markLine:{silent:true,symbol:"none",label:{fontSize:9,position:"insideEndTop",formatter:params=>params.name},
+          data:[{name:"预警 "+rule.yellow,yAxis:rule.yellow,lineStyle:{color:"#c4a56b",width:1,type:"dashed"}},{name:"报警 "+rule.red,yAxis:rule.red,lineStyle:{color:"#d19b8f",width:1,type:"dashed"}}]}}]},true);
+    updateHistoryStats();
+  }
+  async function refreshHistory(){
+    if(!$("historyChart") || !currentMode)return;
+    const version=++historyVersion;
+    try {
+      const data=await api("/api/history?"+historyParams());
+      if(version!==historyVersion)return;
+      historyPoints=data.points;stats=data.statistics;historyWindow={since:data.since,until:data.until};
+      set("historyCount",stats.total+" 条采样 · "+historyPoints.length+" 个展示点");
+      set("historyNote",modes[data.mode]+" · 虚线为演示阈值 · 最多展示 600 个抽样点，统计与导出使用全部采样");
+      if($("sampleRows")){
+        const rows=historyPoints.slice(-20).reverse().map(sample=>{
+          const tr=node("tr","");[timeText(sample.ts,true),...["temp_c","rh","co2_ppm","smoke_raw"].map(key=>numberText(sample[key],key)),modes[sample.mode]].forEach(value=>tr.append(node("td",value)));return tr;
+        });
+        if(!rows.length){const tr=node("tr",""),td=node("td","所选时段暂无采样数据","empty");td.colSpan=6;tr.append(td);rows.push(tr);}
+        $("sampleRows").replaceChildren(...rows);
+      }
+      drawChart();lastHistoryAt=Date.now();
+    }catch(error){
+      if(version!==historyVersion)return;
+      historyPoints=[];stats=null;drawChart();
+      ["statTotal","statMin","statMax","statAvg"].forEach(id=>set(id,"--"));
+      set("statValid","读取失败");set("historyCount","历史读取失败");set("historyMessage",error.message);
+      set("historyNote","本次查询未成功，请检查连接后重试。");
+      if($("sampleRows")){$("sampleRows").replaceChildren();const tr=node("tr",""),td=node("td","本次查询未成功","empty");td.colSpan=6;tr.append(td);$("sampleRows").append(tr);}
+    }
+  }
+  function showDetails(event){
+    const body=$("eventDetails");body.replaceChildren();
+    if(page==="alerts"){
+      const summary=node("section","","detail-summary"),heading=node("div","");
+      heading.append(node("span",event.level==="green"?"恢复正常":levels[event.level],"event-level "+event.level),node("span","事件 #"+event.id,"event-id"));
+      summary.append(heading,node("h3",event.reason),node("time",timeText(event.ts,true)));body.append(summary);
+      const metadata=node("section","","detail-section"),list=node("dl","","event-metadata");
+      [["事件类别",types[event.source]||event.source],["运行模式",modes[event.mode]||event.mode],["数据来源",event.is_demo?"模拟演示":"实际采集"]].forEach(([label,value])=>{
+        const row=node("div","");row.append(node("dt",label),node("dd",value));list.append(row);
+      });metadata.append(node("h3","事件信息"),list);body.append(metadata);
+      const snapshot=node("section","","detail-section"),grid=node("div","","snapshot-grid");
+      ["temp_c","rh","co2_ppm","smoke_raw"].forEach(key=>{
+        const rule=thresholds[key];if(!rule)return;
+        const item=node("div","","snapshot-item"),value=node("div","");
+        item.dataset.snapshotMetric=key;
+        const label=node("span",rule.label,"snapshot-label");
+        if(event.target===key && ["red","yellow","green"].includes(event.level)){
+          item.classList.add("is-target");item.dataset.eventLevel=event.level;
+          label.append(node("span",event.level==="green"?"恢复指标":"触发指标","metric-marker"));
+        }
+        value.append(node("strong",numberText(event.snapshot[key],key)),node("span",rule.unit,"snapshot-unit"));
+        item.append(label,value,node("small",sources[event.snapshot.sources?.[key]]||"未标记来源"));grid.append(item);
+      });snapshot.append(node("h3","触发时的采样快照"),grid);body.append(snapshot);
+      const delivery=node("section","","detail-section"),deliveryList=node("dl","","event-metadata"),mailRow=node("div","");
+      mailRow.append(node("dt","邮件通知"),node("dd",mails[event.mail_status]||event.mail_status));deliveryList.append(mailRow);
+      if(event.attempts){const attempt=node("div","");attempt.append(node("dt","投递尝试"),node("dd",event.attempts+" 次"));deliveryList.append(attempt);}
+      delivery.append(node("h3","通知结果"),deliveryList);
+      if(event.last_error)delivery.append(node("p",event.last_error,"delivery-error"));body.insertBefore(delivery,snapshot);
+      $("eventDialog").showModal();return;
+    }
+    const entries=[["事件编号","#"+event.id],["发生时间",timeText(event.ts,true)],["事件等级",event.level==="green"?"恢复正常":levels[event.level]],
+      ["事件内容",event.reason],["运行模式",modes[event.mode]||event.mode],["事件来源",event.is_demo?"模拟演示":"实际采集"],["邮件状态",mails[event.mail_status]||event.mail_status]];
+    for(const [key,rule] of Object.entries(thresholds)){
+      entries.push([rule.label,numberText(event.snapshot[key],key)+" "+rule.unit+" · "+(sources[event.snapshot.sources?.[key]]||"未标记")]);
+    }
+    if(event.attempts)entries.push(["邮件尝试次数",event.attempts]);
+    if(event.last_error)entries.push(["最近投递错误",event.last_error]);
+    entries.forEach(([label,value])=>{const row=node("div","","event-detail");row.append(node("span",label),node("strong",value));body.append(row);});
+    $("eventDialog").showModal();
+  }
+  function toast(event){
+    [...$("toasts").children].filter(item=>item.dataset.device===event.device).forEach(item=>item.remove());
+    const box=node("div","","toast "+event.level);box.dataset.device=event.device;box.setAttribute("role","alert");
+    const head=node("div",""),close=node("button","×");close.setAttribute("aria-label","关闭告警弹窗");close.addEventListener("click",()=>box.remove());
+    head.append(node("strong",(event.is_demo?"模拟 · ":"")+(event.level==="green"?"恢复正常":levels[event.level])),close);
+    box.append(head,node("p",event.reason),node("small",timeText(event.ts)+" · "+mails[event.mail_status]));
+    $("toasts").prepend(box);while($("toasts").children.length>3)$("toasts").lastElementChild.remove();
+    if(event.level!=="red")setTimeout(()=>box.remove(),15000);
+  }
+  async function refreshNotifications(){
+    try{
+      const newest=await api("/api/notification_events");
+      if(eventStream!==newest.stream_id || eventCursor===null || eventCursor>newest.latest_id){
+        eventStream=newest.stream_id;eventCursor=newest.latest_id;saveCursor();
+      }else{
+        let pages=0;
+        while(eventCursor<newest.latest_id && pages++<3){
+          const data=await api("/api/notification_events?after="+eventCursor);
+          if(data.stream_id!==eventStream){eventCursor=null;break;}if(!data.events.length)break;
+          data.events.forEach(event=>{toast(event);eventCursor=Math.max(eventCursor,event.id);});saveCursor();
+        }
+      }
+      notificationsOnline=true;
+    }catch(_){notificationsOnline=false;connection("告警读取异常","red");set("popupState","读取异常");}
+  }
+  function renderRecent(data){
+    if(!$("recentList"))return;
+    $("recentList").replaceChildren();
+    if(!data.events.length){$("recentList").append(node("div","当前模式暂无告警记录","empty"));return;}
+    data.events.slice(0,4).forEach(event=>{
+      const item=node("button","","recent-event");item.type="button";
+      const head=node("div","");head.append(node("i","","dot "+event.level),node("span",event.level==="green"?"恢复正常":types[event.source]||"告警"),node("span",event.is_demo?"模拟":"实际"),node("time",timeText(event.ts)));
+      item.append(head,node("p",event.reason));item.addEventListener("click",()=>showDetails(event));$("recentList").append(item);
+    });
+  }
+  function renderEventTable(data){
+    eventPage=data.page;eventPages=data.pages;
+    set("eventTotal",data.total);set("eventPageSize",data.page_size);set("pageNumber",data.page+" / "+data.pages);
+    const counts=data.level_counts || {};
+    [["","alertCountAll"],["red","alertCountRed"],["yellow","alertCountYellow"],["green","alertCountGreen"]].forEach(([level,id])=>{
+      const count=data.level_counts?(level?(counts[level]||0):data.scope_total):null;
+      set(id,count==null?"--":count);
+      document.querySelector('[data-level-filter="'+level+'"]').classList.toggle("is-empty",count===0);
+    });
+    set("alertUpdated","更新于 "+timeText(Date.now()/1000));
+    $("prevPage").disabled=data.page<=1;$("nextPage").disabled=data.page>=data.pages;
+    const rows=data.events.map(event=>{
+      const tr=node("tr","","event-row"),when=node("td","");
+      const timestamp=node("time",timeText(event.ts),"event-time");timestamp.dateTime=new Date(event.ts*1000).toISOString();timestamp.title=timeText(event.ts,true);
+      when.append(timestamp,node("small",new Date(event.ts*1000).toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit"})));
+      const level=node("td","");level.append(node("span",event.level==="green"?"恢复正常":levels[event.level],"event-level "+event.level));
+      const reason=node("td","","event-reason");reason.append(node("p",event.reason),node("small",(types[event.source]||event.source)+" · #"+event.id));
+      const action=node("td",""),button=node("button","详情","detail-button");button.setAttribute("aria-label","查看事件 "+event.id);
+      button.addEventListener("click",()=>showDetails(event));action.append(button);
+      const source=node("td",""),mail=node("td","");
+      source.append(node("span",event.is_demo?"模拟数据":"实际采集","source-label "+(event.is_demo?"simulation":"mqtt")),node("small",modes[event.mode]||event.mode));
+      mail.append(node("span",mails[event.mail_status]||event.mail_status,"mail-state "+(["sent","failed"].includes(event.mail_status)?event.mail_status:"neutral")));
+      tr.append(when,level,reason,source,mail,action);
+      return tr;
+    });
+    if(!rows.length){
+      const tr=node("tr",""),td=node("td",""),empty=node("div","","empty-state");td.colSpan=6;
+      if($("emptyEventIcon"))empty.append($("emptyEventIcon").content.cloneNode(true));
+      empty.append(node("strong",appliedAlertParams.size?"没有符合条件的记录":"暂无告警记录"),node("span",appliedAlertParams.size?"调整筛选条件后重新查询。":"异常与恢复事件会在这里保存。"));
+      td.append(empty);tr.append(td);rows.push(tr);
+    }
+    $("eventRows").replaceChildren(...rows);
+  }
+  async function refreshPageEvents(){
+    if(page!=="overview" && page!=="alerts")return;
+    const version=++queryVersion;
+    const params=page==="overview"?new URLSearchParams({mode:currentMode||"hybrid"}):new URLSearchParams(appliedAlertParams);
+    params.set("page",page==="alerts"?eventPage:1);
+    try{
+      const data=await api("/api/alerts?"+params);if(version!==queryVersion)return;
+      if(page==="overview")renderRecent(data);else{renderEventTable(data);set("alertMessage","");}
+      lastPageEventsAt=Date.now();
+    }catch(error){set("alertMessage",error.message);if($("recentList"))$("recentList").replaceChildren(node("div","告警记录读取失败","empty"));}
+  }
+  async function refreshQueue(){
+    if(page!=="devices")return;
+    try{const data=await api("/api/notification_status"),counts=data.mail_counts;
+      set("queuePending",(counts.pending||0)+" / "+(counts.sending||0));set("queueResult",(counts.sent||0)+" / "+(counts.failed||0));
+    }catch(_){set("queuePending","读取失败");set("queueResult","读取失败");}
+  }
+  async function control(body){
+    if(controlBusy)return;controlBusy=true;$("modeSelect").disabled=true;
+    document.querySelectorAll("[data-scenario]").forEach(button=>button.disabled=true);set("controlMessage","正在应用…");
+    try{
+      const data=await api("/api/simulation",{method:"POST",headers:{"Content-Type":"application/json","X-Control-Token":token},body:JSON.stringify(body)});
+      renderStatus(data);set("controlMessage","已应用，后台持续采样");await refreshNotifications();
+    }catch(error){set("controlMessage",error.message);if(status)renderStatus(status);}
+    finally{controlBusy=false;$("modeSelect").disabled=false;document.querySelectorAll("[data-scenario]").forEach(button=>button.disabled=currentMode==="live");}
+  }
+  async function poll(){
+    try{
+      const data=await api("/api/status");if(!controlBusy)renderStatus(data);
+      await refreshNotifications();
+      if(Date.now()-lastPageEventsAt>=4000)await refreshPageEvents();
+      if(Date.now()-lastHistoryAt>=10000)await refreshHistory();
+      await refreshQueue();
+    }catch(_){markOffline();}
+    setTimeout(poll,2000);
+  }
+  function resetHistoryView(){
+    minutes=10;customRange=null;set("historyMessage","最近 10 分钟，自动更新");
+    $("historyFrom").value="";$("historyTo").value="";
+    document.querySelectorAll("[data-minutes]").forEach(button=>button.classList.toggle("selected",Number(button.dataset.minutes)===minutes));
+    historyVersion++;refreshHistory();
+  }
+  function localInputDate(value){return new Date(value).getTime()/1000;}
+  $("modeSelect")?.addEventListener("change",event=>control({mode:event.target.value}));
+  document.querySelectorAll("[data-scenario]").forEach(button=>button.addEventListener("click",()=>control({scenario:button.dataset.scenario})));
+  document.querySelectorAll("[data-minutes]").forEach(button=>button.addEventListener("click",()=>{
+    minutes=Number(button.dataset.minutes);customRange=null;
+    if($("historyFrom")){$("historyFrom").value="";$("historyTo").value="";}
+    document.querySelectorAll("[data-minutes]").forEach(item=>item.classList.toggle("selected",item===button));
+    set("historyMessage","最近 "+minutes+" 分钟，自动更新");refreshHistory();
+  }));
+  $("chartMetric")?.addEventListener("change",drawChart);
+  $("historyMode")?.addEventListener("change",event=>{selectedHistoryMode=event.target.value;historyPoints=[];stats=null;drawChart();refreshHistory();});
+  $("applyHistory")?.addEventListener("click",()=>{
+    const from=localInputDate($("historyFrom").value),to=localInputDate($("historyTo").value);
+    if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||to-from>86400){set("historyMessage","请选择有效起止时间，单次最多 24 小时");return;}
+    customRange={from,to};document.querySelectorAll("[data-minutes]").forEach(button=>button.classList.remove("selected"));
+    set("historyMessage","按选定时段查询");refreshHistory();
+  });
+  $("resetHistory")?.addEventListener("click",resetHistoryView);
+  $("exportHistory")?.addEventListener("click",async()=>{
+    const button=$("exportHistory");button.disabled=true;
+    try{
+      const response=await fetch("/api/history/export?"+historyParams(),{signal:AbortSignal.timeout(30000)});
+      if(!response.ok)throw new Error("导出失败，请检查查询条件");
+      const url=URL.createObjectURL(await response.blob()),anchor=document.createElement("a");anchor.href=url;anchor.download="factory-history.csv";anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+      set("historyMessage","已导出当前查询范围的完整采样");
+    }catch(error){set("historyMessage",error.message);}finally{button.disabled=false;}
+  });
+  function readAlertFilters(){
+    const params=new URLSearchParams();
+    for(const [id,key] of [["alertMode","mode"],["alertLevel","level"],["alertSource","source"],["alertQuery","q"]]){
+      if($(id).value.trim())params.set(key,$(id).value.trim());
+    }
+    const from=$("alertFrom").value,to=$("alertTo").value;
+    if(from)params.set("from",localInputDate(from));if(to)params.set("to",localInputDate(to));
+    return params;
+  }
+  if(page==="alerts"){
+    const rules=$("alertRules"),rulesButton=rules.querySelector("summary");
+    document.addEventListener("pointerdown",event=>{if(!rules.contains(event.target))rules.open=false;});
+    document.addEventListener("keydown",event=>{if(event.key==="Escape" && rules.open){rules.open=false;rulesButton.focus();}});
+    function applyAlertFilters(){
+      appliedAlertParams=readAlertFilters();eventPage=1;
+      document.querySelectorAll("[data-level-filter]").forEach(button=>{
+        const active=button.dataset.levelFilter===$("alertLevel").value;
+        button.classList.toggle("active",active);button.setAttribute("aria-pressed",String(active));
+      });
+      const ranged=appliedAlertParams.has("from")||appliedAlertParams.has("to");
+      document.querySelector(".date-disclosure").classList.toggle("has-range",ranged);
+      set("dateFilterLabel",ranged?"已选时间":"时间范围");
+      refreshPageEvents();
+    }
+    const source=new URLSearchParams(location.search).get("source");
+    if(Object.hasOwn(types,source)){$("alertSource").value=source;appliedAlertParams.set("source",source);}
+    $("alertFilters").addEventListener("submit",event=>{event.preventDefault();applyAlertFilters();});
+    $("resetAlerts").addEventListener("click",()=>{$("alertFilters").reset();$("alertLevel").value="";applyAlertFilters();});
+    document.querySelectorAll("[data-level-filter]").forEach(button=>button.addEventListener("click",()=>{$("alertLevel").value=button.dataset.levelFilter;applyAlertFilters();}));
+    $("refreshAlerts")?.addEventListener("click",refreshPageEvents);
+    $("prevPage").addEventListener("click",()=>{if(eventPage>1){eventPage--;refreshPageEvents();}});
+    $("nextPage").addEventListener("click",()=>{if(eventPage<eventPages){eventPage++;refreshPageEvents();}});
+  }
+  $("closeDialog").addEventListener("click",()=>$("eventDialog").close());
+  window.addEventListener("resize",()=>chart?.resize());
+  const clock=()=>{const now=new Date();set("date",now.toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"}));set("clock",now.toLocaleTimeString("zh-CN",{hour12:false}));};
+  clock();setInterval(clock,1000);poll();
+})();

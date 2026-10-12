@@ -1,0 +1,18 @@
+<div class="page-intro">
+  <div><div class="eyebrow">系统管理 / 设备接入</div><h2>设备与通知状态</h2><p>掌握采集节点、传感器与通知通道的接入情况。</p></div>
+  <a class="button primary" href="/simulation">{{ icon('simulation') }}进入模拟与联调</a>
+</div>
+<section class="node-banner"><div class="node-identity"><span class="node-emblem">{{ icon('factory') }}</span><div><span>工厂模拟区 · 01</span><h3>环境采集节点</h3><p>ESP32-S3 · 单节点采集</p></div></div><div class="node-connection"><span>实际设备连接</span><strong id="deviceEsp">等待检测</strong><small>与模拟数据状态分别显示</small></div><div class="node-received"><span>最近实际上报</span><strong id="deviceReceived">--</strong><small>连续 20 秒无新数据视为过期</small></div></section>
+<div class="device-workspace">
+  <section class="panel inventory-panel"><div class="panel-heading"><div><h2>{{ icon('devices') }}传感器与执行器</h2><p class="section-subtitle">实时读数与数据来源</p></div><span class="subtle-badge">工厂模拟区</span></div>
+    <div class="table-wrap"><table class="device-table"><thead><tr><th>器件 / 用途</th><th>监测项</th><th>当前值</th><th>来源 / 状态</th><th>接入说明</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
+    <div class="inventory-footer">{{ icon('shield') }}<span>模拟数值仅用于联调，不代表硬件已连接。</span></div>
+  </section>
+  <aside class="device-side">
+    <section class="panel"><div class="panel-heading"><h2>{{ icon('link') }}节点通信</h2><span class="mini-label">MQTT</span></div><dl class="detail-list"><div><dt>设备名称</dt><dd id="deviceName">--</dd></div><div><dt>消息连接</dt><dd id="deviceMqtt">等待检测</dd></div></dl><div class="side-note">节点上线后，实际数据将替换对应的待接入状态。</div></section>
+    <section class="panel mail-panel"><div class="panel-heading"><h2>{{ icon('mail') }}邮件通知</h2><span class="mini-label">QQ 邮箱</span></div>
+      <div class="channel-summary"><span class="icon-tile">{{ icon('mail') }}</span><div><strong id="deviceMail">未启用</strong><span>后台告警通知</span></div></div>
+      <dl class="detail-list"><div><dt>模拟事件邮件</dt><dd id="deviceDemoMail">默认关闭</dd></div><div><dt>等待投递 / 发送中</dt><dd id="queuePending">--</dd></div><div><dt>已提交 / 失败</dt><dd id="queueResult">--</dd></div></dl><div class="side-note">“已提交”表示邮件服务器已接受。邮箱授权信息在主机本地配置。</div>
+    </section>
+  </aside>
+</div>

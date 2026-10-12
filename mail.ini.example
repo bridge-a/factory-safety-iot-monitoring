@@ -1,0 +1,13 @@
+[smtp]
+# 复制为 mail.ini，填好后将 enabled 改成 true。授权码只保存在本机。
+enabled = false
+# 模拟事件默认不发邮件；要联调模拟邮件时才改为 true。
+allow_demo = false
+host = smtp.qq.com
+port = 465
+username =
+authorization_code = YOUR_QQ_SMTP_AUTHORIZATION_CODE
+# 填一个收件邮箱；可以与发件邮箱相同。
+recipient =
+timeout_seconds = 10
+max_attempts = 5

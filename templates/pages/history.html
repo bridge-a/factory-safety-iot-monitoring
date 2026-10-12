@@ -1,0 +1,28 @@
+<div class="page-intro">
+  <div><div class="eyebrow">数据中心 / 历史分析</div><h2>环境历史趋势</h2><p>每一次环境变化，都有迹可循。</p></div>
+  <button class="button primary" id="exportHistory">{{ icon('download') }}导出 CSV</button>
+</div>
+<div class="stat-grid analysis-stats">
+  <article class="stat-feature"><div class="stat-heading"><span>采样记录</span>{{ icon('database') }}</div><strong id="statTotal">--</strong><small id="statValid">等待查询</small></article>
+  <article><div class="stat-heading"><span>最小值</span>{{ icon('arrow-down') }}</div><div class="stat-value"><strong id="statMin">--</strong><small class="statUnit">--</small></div><small>所选指标 · 查询时段内</small></article>
+  <article><div class="stat-heading"><span>最大值</span>{{ icon('arrow-up') }}</div><div class="stat-value"><strong id="statMax">--</strong><small class="statUnit">--</small></div><small>所选指标 · 查询时段内</small></article>
+  <article><div class="stat-heading"><span>平均值</span>{{ icon('history') }}</div><div class="stat-value"><strong id="statAvg">--</strong><small class="statUnit">--</small></div><small>基于全部有效采样</small></article>
+</div>
+<div class="analysis-layout">
+  {{ trend(metrics,true) }}
+  <aside class="panel query-panel">
+    <div class="panel-heading"><h2>{{ icon('filter') }}查询范围</h2><span class="mini-label">最多 24 小时</span></div>
+    <div class="filter-panel history-filters">
+      <label>数据模式<select id="historyMode">{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+      <label>开始时间<input type="datetime-local" id="historyFrom"></label>
+      <label>结束时间<input type="datetime-local" id="historyTo"></label>
+      <div class="query-actions"><button class="button primary" id="applyHistory">查询时段</button><button class="button" id="resetHistory">最近 10 分钟</button></div>
+      <span class="filter-message" id="historyMessage" role="status">选择日期，或使用图表上方的快捷范围。</span>
+    </div>
+    <div class="query-note">{{ icon('shield') }}<p>统计与导出保留全部采样<br><span>无效读数留空，不计入平均值。</span></p></div>
+  </aside>
+</div>
+<section class="panel history-table-panel">
+  <div class="panel-heading"><div><h2>{{ icon('database') }}采样明细</h2><p class="section-subtitle">核对曲线对应的环境读数</p></div><span id="sampleTableNote" class="subtle-badge">最近 20 个展示点</span></div>
+  <div class="table-wrap"><table class="sample-table"><thead><tr><th>采样时间</th><th>温度 <small>°C</small></th><th>湿度 <small>%RH</small></th><th>CO₂ <small>ppm</small></th><th>烟雾 <small>ADC</small></th><th>数据模式</th></tr></thead><tbody id="sampleRows"></tbody></table></div>
+</section>

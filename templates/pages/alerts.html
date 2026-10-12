@@ -1,0 +1,27 @@
+<div class="alerts-page-heading">
+  <div class="alerts-title"><h1>告警记录</h1><details class="rules-help" id="alertRules"><summary aria-label="告警记录规则"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/></svg></summary><div class="rules-popover" role="note"><strong>记录规则</strong><p>同一指标、同等级的持续异常不重复记录；等级升级另行记录，降级或恢复需连续满足条件 15 秒。</p><p>标签数字按记录条数统计，同一次异常升级可能产生多条记录。</p></div></details></div>
+  <button class="button refresh-button" id="refreshAlerts" type="button">{{ icon('refresh') }}刷新</button>
+</div>
+<div class="level-filters" role="group" aria-label="按告警等级筛选">
+  <button type="button" data-level-filter="" class="active" aria-pressed="true">全部<span class="filter-count" id="alertCountAll">--</span></button>
+  <button type="button" data-level-filter="red" aria-pressed="false"><i class="level-dot red" aria-hidden="true"></i>红色报警<span class="filter-count" id="alertCountRed">--</span></button>
+  <button type="button" data-level-filter="yellow" aria-pressed="false"><i class="level-dot yellow" aria-hidden="true"></i>黄色预警<span class="filter-count" id="alertCountYellow">--</span></button>
+  <button type="button" data-level-filter="green" aria-pressed="false"><i class="level-dot green" aria-hidden="true"></i>恢复正常<span class="filter-count" id="alertCountGreen">--</span></button>
+</div>
+<form id="alertFilters" class="alert-toolbar" aria-label="筛选告警">
+  <input type="hidden" id="alertLevel" value="">
+  <label class="search-field"><span class="visually-hidden">内容关键词</span>{{ icon('search') }}<input id="alertQuery" maxlength="80" placeholder="搜索告警内容"></label>
+  <label class="select-field"><span class="visually-hidden">运行模式</span><select id="alertMode"><option value="">全部模式</option>{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+  <label class="select-field"><span class="visually-hidden">类别</span><select id="alertSource"><option value="">全部类别</option><option value="environment">环境异常</option><option value="smoke">烟雾异常</option><option value="vision">明火异常</option></select></label>
+  <details class="date-disclosure"><summary>{{ icon('calendar') }}<span id="dateFilterLabel">时间范围</span><span class="chevron">⌄</span></summary><div class="date-fields"><label>开始时间<input type="datetime-local" id="alertFrom"></label><span class="range-dash">—</span><label>结束时间<input type="datetime-local" id="alertTo"></label><button type="submit" class="button primary">应用</button></div></details>
+  <button class="button primary" type="submit" aria-label="筛选记录">查询</button>
+  <button class="button reset-button" type="button" id="resetAlerts">重置</button>
+</form>
+<p id="alertMessage" class="query-message" role="status"></p>
+<div class="records-table-shell">
+  <div class="table-wrap" tabindex="0" aria-label="告警记录表格，可横向滚动">
+    <table class="alerts-table"><colgroup><col class="col-time"><col class="col-level"><col class="col-content"><col class="col-source"><col class="col-mail"><col class="col-detail"></colgroup><thead><tr><th scope="col">发生时间</th><th scope="col">等级</th><th scope="col">告警内容</th><th scope="col">数据来源</th><th scope="col">邮件通知</th><th scope="col"><span class="visually-hidden">查看详情</span></th></tr></thead><tbody id="eventRows"><tr><td colspan="6" class="empty">正在读取记录…</td></tr></tbody></table>
+  </div>
+</div>
+<div class="records-bottom"><div class="records-caption"><span id="pageSummary">共 <span id="eventTotal">--</span> 条 · 每页 <span id="eventPageSize">20</span> 条</span><span id="alertUpdated"></span></div><div class="pagination"><button class="button" id="prevPage">上一页</button><span id="pageNumber">1 / 1</span><button class="button" id="nextPage">下一页</button></div></div>
+<template id="emptyEventIcon">{{ icon('archive') }}</template>

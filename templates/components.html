@@ -1,0 +1,106 @@
+{% macro icon(name) -%}
+<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+{% if name == 'overview' %}<path d="m3 10 9-7 9 7M5 9v12h14V9M9 21v-7h6v7"/>
+{% elif name == 'history' %}<path d="M3 3v18h18M6 15l4-5 4 3 6-9"/>
+{% elif name == 'alerts' %}<path d="M5 17h14c-2-2-3-5-3-9a4 4 0 0 0-8 0c0 4-1 7-3 9ZM10 21h4M12 2V1"/>
+{% elif name == 'vision' %}<rect x="3" y="5" width="14" height="14" rx="2"/><circle cx="10" cy="12" r="3"/><path d="m17 9 4-3v12l-4-3"/>
+{% elif name == 'devices' %}<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M8 1v4M16 1v4M8 19v4M16 19v4M1 8h4M1 16h4M19 8h4M19 16h4"/>
+{% elif name == 'simulation' %}<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>
+{% elif name == 'factory' %}<path d="M3 21V10l6 4V8l7 5V3h5v18ZM7 18h1m4 0h1m4 0h1"/>
+{% elif name == 'temp_c' %}<path d="M10 5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0ZM12 8v8"/>
+{% elif name == 'rh' %}<path d="M12 2C9 7 5 11 5 15a7 7 0 0 0 14 0c0-4-4-8-7-13ZM9 17c0 1 1 2 3 2"/>
+{% elif name == 'co2_ppm' %}<path d="M6 18a5 5 0 0 1-1-10 7 7 0 0 1 13 0 5 5 0 0 1-1 10ZM9 13h6"/>
+{% elif name == 'smoke_raw' %}<path d="M5 20h14M4 15h16M8 11C3 5 14 8 9 2M15 11c-5-6 6-3 1-9"/>
+{% elif name == 'shield' %}<path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6ZM12 7v6m0 4v.1"/>
+{% elif name == 'mail' %}<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 5 10 8L22 5"/>
+{% elif name == 'light' %}<path d="M8 17h8M9 21h6M8 14a6 6 0 1 1 8 0v3H8Z"/>
+{% elif name == 'download' %}<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>
+{% elif name == 'database' %}<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>
+{% elif name == 'arrow-down' %}<path d="M12 4v16m-6-6 6 6 6-6"/>
+{% elif name == 'arrow-up' %}<path d="M12 20V4m-6 6 6-6 6 6"/>
+{% elif name == 'arrow-right' %}<path d="M4 12h16m-6-6 6 6-6 6"/>
+{% elif name == 'filter' %}<path d="M3 5h18l-7 8v6l-4 2v-8Z"/>
+{% elif name == 'search' %}<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>
+{% elif name == 'calendar' %}<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 2v6m10-6v6M3 11h18M7 15h2m3 0h2m3 0h1"/>
+{% elif name == 'archive' %}<rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v13h14V8M9 12h6"/>
+{% elif name == 'check' %}<path d="m5 12 4 4L19 6"/>
+{% elif name == 'link' %}<path d="m9 15 6-6M8 16l-1 1a3.5 3.5 0 0 1-5-5l5-5a3.5 3.5 0 0 1 5 0m0 10a3.5 3.5 0 0 0 5 0l5-5a3.5 3.5 0 0 0-5-5l-1 1"/>
+{% elif name == 'fire' %}<path d="M12 2c2 6-2 6 1 10 1-2 3-3 4-5 2 3 4 5 4 8a9 9 0 0 1-18 0c0-4 6-7 9-13Z"/><path d="M12 14c-5 5 1 8 3 4"/>
+{% elif name == 'refresh' %}<path d="M20 8a8 8 0 0 0-14-3L3 8m0-6v6h6M4 16a8 8 0 0 0 14 3l3-3m0 6v-6h-6"/>
+{% elif name == 'unplug' %}<path d="m3 3 18 18M9 4v3m6-3v3M6 7h12v5a6 6 0 0 1-6 6m-6-6a6 6 0 0 0 6 6v4"/>
+{% endif %}</svg>
+{%- endmacro %}
+
+{% macro video(large=false) %}
+<section class="panel video-panel {{ 'large-video' if large else '' }}">
+  <div class="panel-heading"><h2>{{ icon('vision') }}现场画面与明火识别</h2><span class="status-text"><i class="dot gray"></i>模型待接入</span></div>
+  <div class="video-body">
+    <div class="video-stage">
+      <div class="camera-tag">CAM-01 · 工厂模拟区</div><span class="video-state">摄像头待接入</span>
+      <svg class="factory-outline" viewBox="0 0 600 300" aria-hidden="true"><path d="M30 255h540M60 250V130l110 55v-85l115 70V55h52v125l93-48v118M285 55V30h52v25M80 222h52v-24H80ZM186 220h52v-23h-52ZM355 215h45v-23h-45M440 250v-92h68v92M457 159v-24h35v24M98 130V93h45v58M78 78c0-32 47-8 47-44M324 16c0-13 20-9 21-16"/><path class="thin" d="M25 283h550M45 273h485M369 82h131M369 90h70M499 82v40M45 25h45M45 25v45M555 25h-45M555 25v45"/></svg>
+      <div class="video-placeholder"><span class="camera-symbol">{{ icon('vision') }}</span><strong>等待接入现场画面</strong><p>USB 摄像头与明火检测模型尚未连接</p></div>
+      <span class="video-caption">现场画面预留区 · 当前未进行视觉检测</span>
+    </div>
+    <div class="vision-footer"><div><span>检测目标</span><strong>明火 / 火焰</strong></div><div><span>最高置信度</span><strong>--</strong></div><div><span>检测状态</span><strong class="muted">尚未运行</strong></div></div>
+  </div>
+</section>
+{% endmacro %}
+
+{% macro gauges(metrics) %}
+<section class="panel env-panel">
+  <div class="panel-heading"><h2>{{ icon('devices') }}实时环境数据</h2><span class="status-text" id="envDevice">采集节点：待接入</span></div>
+  <div class="gauge-grid">
+    {% set scales = {'temp_c': [-10,50], 'rh':[0,100], 'co2_ppm':[0,3000], 'smoke_raw':[0,4095]} %}
+    {% for key, metric in metrics.items() %}
+    <article class="sensor-gauge" data-metric="{{ key }}" data-min="{{ scales[key][0] }}" data-max="{{ scales[key][1] }}">
+      <h3>{{ icon(key) }}{{ '烟雾' if key == 'smoke_raw' else metric.label }}</h3>
+      <span class="source-tag" data-role="source">待接入</span>
+      <div class="gauge-figure"><svg viewBox="0 0 200 150" aria-hidden="true"><path class="gauge-track" pathLength="100" d="M25 118A78 78 0 1 1 175 118"/><path class="gauge-progress" pathLength="100" d="M25 118A78 78 0 1 1 175 118"/></svg>
+        <div class="gauge-center"><strong data-role="value">--</strong><span>{{ metric.unit }}</span></div>
+        <div class="gauge-scale"><span>{{ scales[key][0] }}</span><span>{{ scales[key][1] }}</span></div>
+      </div>
+      <strong class="metric-state gray" data-role="state">等待数据</strong><time data-role="time">--:--:--</time>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endmacro %}
+
+{% macro linkage() %}
+<section class="panel linkage-panel">
+  <div class="panel-heading"><h2>{{ icon('simulation') }}告警联动状态</h2><a href="/devices">设备详情 ›</a></div>
+  <div class="linkage-grid">
+    <div>{{ icon('alerts') }}<span>蜂鸣器</span><strong class="muted">待接线联调</strong></div>
+    <div>{{ icon('light') }}<span>指示灯 LED</span><strong class="muted">待接线联调</strong></div>
+    <div>{{ icon('overview') }}<span>网页弹窗</span><strong id="popupState">等待连接</strong></div>
+    <div>{{ icon('mail') }}<span>QQ 邮件</span><strong id="mailLinkState">未启用</strong></div>
+  </div>
+  <p class="panel-footnote" id="linkageNote">后台持续监测，告警状态与页面显示同步。</p>
+</section>
+{% endmacro %}
+
+{% macro risk() %}
+<section class="panel risk-panel">
+  <div class="panel-heading"><h2>{{ icon('shield') }}综合风险与最新告警</h2></div>
+  <div class="current-risk gray" id="riskCard"><div class="risk-title">当前综合风险：<strong id="riskCardLevel">等待数据</strong></div>
+    <dl><div><dt>风险来源</dt><dd id="riskSource">--</dd></div><div><dt>异常内容</dt><dd id="riskReason">等待各模块返回有效数据</dd></div><div><dt>监测时间</dt><dd id="riskTime">--:--:--</dd></div></dl>
+    <p id="riskAdvice">处置提示：等待采样</p>
+  </div>
+  <div class="recent-heading"><h3>最新告警记录</h3><a href="/alerts">查看全部 ›</a></div>
+  <div class="recent-list" id="recentList"><div class="empty">当前暂无告警记录</div></div>
+  <p class="panel-footnote">显示当前模式的事件；恢复须连续保持 15 秒。</p>
+</section>
+{% endmacro %}
+
+{% macro trend(metrics, full=false) %}
+<section class="panel trend-panel {{ 'full-trend' if full else '' }}">
+  <div class="panel-heading"><h2>{{ icon('history') }}环境历史趋势</h2><div class="segmented" aria-label="历史时间范围"><button data-minutes="10" class="selected">10 分钟</button><button data-minutes="30">30 分钟</button><button data-minutes="60">1 小时</button>{% if full %}<button data-minutes="360">6 小时</button><button data-minutes="1440">24 小时</button>{% endif %}</div></div>
+  <div class="chart-toolbar"><label for="chartMetric">监测指标</label><select id="chartMetric">{% for key, metric in metrics.items() %}<option value="{{ key }}" {{ 'selected' if key == 'smoke_raw' else '' }}>{{ metric.label }} / {{ metric.unit }}</option>{% endfor %}</select><span id="historyCount">等待采样记录</span>{% if not full %}<a href="/history">详细查询 ›</a>{% endif %}</div>
+  <div id="historyChart" role="img" aria-label="环境监测历史折线图"></div>
+  <p class="panel-footnote" id="historyNote">当前模式 · 虚线为演示阈值 · 断线值不连接</p>
+</section>
+{% endmacro %}
+
+{% macro event_table() %}
+<div class="table-wrap"><table><thead><tr><th>事件 / 时间</th><th>等级</th><th>事件内容</th><th>类别</th><th>数据来源</th><th>邮件状态</th><th>详情</th></tr></thead><tbody id="eventRows"><tr><td colspan="7" class="empty">正在读取告警记录</td></tr></tbody></table></div>
+{% endmacro %}
