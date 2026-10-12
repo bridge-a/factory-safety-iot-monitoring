@@ -1,20 +1,40 @@
-<div class="page-intro">
-  <div><div class="eyebrow">安全中心 / 视觉监测</div><h2>明火异常检测</h2><p>观察现场画面，辅助发现明火与火焰。</p></div>
-  <span class="subtle-badge amber"><i class="dot yellow"></i>等待接入检测设备</span>
+<div class="vision-heading">
+  <div><h1>明火检测</h1><p>工厂模拟区 <span>／</span> 01 号摄像头</p></div>
+  <div class="vision-actions"><span id="visionUpdated" role="status">正在读取状态</span><button class="button" id="refreshVision" type="button">{{ icon('refresh') }}刷新</button></div>
 </div>
-<div class="vision-layout">
-  {{ video(true) }}
-  <aside class="vision-side">
-    <section class="panel detection-status"><div class="panel-heading"><h2>{{ icon('devices') }}检测状态</h2></div>
-      <div class="detection-idle"><span class="icon-tile">{{ icon('vision') }}</span><div><strong>检测尚未启用</strong><p>等待摄像头与模型就绪</p></div></div>
-      <dl class="detail-list"><div><dt>采集设备</dt><dd>USB 摄像头 <span class="status-badge neutral">待连接</span></dd></div><div><dt>检测目标</dt><dd>明火 / 火焰</dd></div><div><dt>模型状态</dt><dd>待部署与验证</dd></div><div><dt>推理帧率</dt><dd>-- <small>FPS</small></dd></div><div><dt>最高置信度</dt><dd>--</dd></div></dl>
-    </section>
-    <section class="panel readiness-panel"><div class="panel-heading"><h2>{{ icon('link') }}接入进度</h2><span class="mini-label">准备中</span></div>
-      <ol class="readiness-list"><li><b>01</b><div><strong>连接现场摄像头</strong><span>确认 USB 视频流可读取</span></div><span class="pending-mark">待接入</span></li><li><b>02</b><div><strong>加载明火检测模型</strong><span>核对类别与识别效果</span></div><span class="pending-mark">待验证</span></li><li><b>03</b><div><strong>接入事件与通知</strong><span>保存截图并联动告警</span></div><span class="pending-mark">待联调</span></li></ol>
-    </section>
+
+<div class="vision-workspace">
+  <section class="camera-view" aria-labelledby="cameraTitle">
+    <div class="vision-section-heading"><h2 id="cameraTitle">现场画面</h2><span class="camera-id">CAM 01</span></div>
+    <div class="camera-screen" id="cameraScreen" data-state="loading" aria-label="现场画面待接入">
+      <span class="camera-screen-label"><i></i><span id="cameraAvailability">正在读取状态</span></span>
+      <div class="camera-empty">{{ icon('vision') }}<strong id="cameraEmptyTitle">等待摄像头画面</strong><p id="cameraEmptyDescription">USB 摄像头尚未接入</p></div>
+      <div class="camera-screen-footer"><span>工厂模拟区 · 01</span><span>USB 摄像头</span></div>
+    </div>
+    <p class="camera-caption">{{ icon('fire') }}<span>识别目标：明火 / 火焰</span><span class="camera-caption-end">画面未接入</span></p>
+  </section>
+
+  <aside class="vision-inspector" aria-labelledby="visionStatusTitle">
+    <div class="vision-section-heading"><h2 id="visionStatusTitle">检测状态</h2><a href="/devices" class="vision-text-link">设备状态 {{ icon('arrow-right') }}</a></div>
+    <div class="vision-status" id="visionStatus" data-state="loading" role="status">
+      <div><i></i><strong id="visionStateLabel">正在读取</strong></div>
+      <p id="visionStateDescription">正在确认检测服务状态。</p>
+    </div>
+    <dl class="vision-facts">
+      <div><dt>采集设备</dt><dd>USB 摄像头</dd></div>
+      <div><dt>摄像头状态</dt><dd id="visionCameraState">待确认</dd></div>
+      <div><dt>检测模型</dt><dd id="visionModelState">待确认</dd></div>
+    </dl>
+    <div class="vision-measures"><div><span>推理帧率</span><strong>— <small>FPS</small></strong></div><div><span>最高置信度</span><strong>— <small>%</small></strong></div></div>
+    <div class="vision-scope"><strong>检测范围</strong><p>明火与烟雾独立判断。明火识别不直接判定吸烟行为或设备故障原因。</p></div>
   </aside>
 </div>
-<section class="panel evidence-panel"><div class="panel-heading"><div><h2>{{ icon('archive') }}事件截图</h2><p class="section-subtitle">保存明火事件发生时的现场画面</p></div><a class="button" href="/alerts?source=vision">明火事件记录 {{ icon('arrow-right') }}</a></div>
-  <div class="evidence-empty"><div class="empty-frame">{{ icon('vision') }}<span>暂无截图</span></div><div><strong>等待第一条检测事件</strong><p>模型接入后，事件截图将在这里展示。<br>当前尚未进行视觉检测，不能据此判断现场无火情。</p></div></div>
+
+<section class="vision-events" aria-labelledby="visionEventsTitle" id="visionEvents" data-state="loading" aria-busy="true">
+  <div class="vision-events-heading"><div><h2 id="visionEventsTitle">明火事件</h2><span id="visionEventSummary">正在读取记录</span></div><a href="/alerts?source=vision" class="vision-text-link">全部记录 {{ icon('arrow-right') }}</a></div>
+  <div class="vision-events-state" id="visionEventsState" role="status">
+    <span class="vision-empty-icon">{{ icon('archive') }}</span><strong id="visionEventsStateTitle">正在读取明火事件</strong><p id="visionEventsStateDescription">请稍候</p>
+  </div>
+  <ol class="vision-event-list" id="visionEventList" hidden aria-label="最近明火事件"></ol>
+  <p class="vision-evidence-note" id="visionEvidenceNote" hidden>当前记录未包含现场截图，截图保存待视觉检测接入。</p>
 </section>
-<div class="context-note">{{ icon('shield') }}<span>视觉检测作为环境监测的补充；明火与烟雾分别判断，不直接判定吸烟行为或设备故障原因。</span></div>

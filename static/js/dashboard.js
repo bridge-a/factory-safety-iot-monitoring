@@ -41,6 +41,7 @@
   }
   function markOffline(message="后台连接中断") {
     connection(message,"red");
+    if(page==="vision"){renderVisionStatus(null);renderVisionEvents(null);}
     setHistoryAuto("error", "连接中断");
     renderRiskIndicator("gray","状态未知",message+"，无法确认当前环境风险");
     ["espStatus","mqttStatus","databaseStatus","mailStatus"].forEach(id=>set(id,"未知"));
@@ -85,6 +86,7 @@
     });
     set("controlHint",data.mode==="live"?"真实采集模式已关闭模拟注入。":"模拟数据通过后台存储和告警规则处理，关闭网页后继续运行。");
     if(!data.sample || !data.runtime_online){markOffline(data.error || "等待后台采样");return;}
+    if(page==="vision")renderVisionStatus(data.vision);
     const sample=data.sample;
     renderRiskIndicator(sample.level,sample.level==="gray"?"数据不完整":levels[sample.level],
       "当前监测状态，依据"+(modes[data.mode]||data.mode)+"数据。"+
@@ -124,6 +126,35 @@
       $("simIndicator").style.width=(sample.smoke_raw==null?0:Math.max(0,Math.min(100,sample.smoke_raw/4095*100)))+"%";
     }
     if(page==="devices")renderDevices(data);
+  }
+  function renderVisionStatus(vision) {
+    const pending=vision?.state==="pending";
+    $("visionStatus").dataset.state=pending?"pending":"unknown";
+    $("cameraScreen").dataset.state=pending?"pending":"unknown";
+    set("visionStateLabel",pending?"检测未启用":"检测状态未知");
+    set("visionStateDescription",pending?"尚未运行视觉检测，当前无法判断明火状态。":"暂时无法确认检测状态，请刷新重试。");
+    set("visionCameraState",pending?"待接入":"未知");set("visionModelState",pending?"待部署":"未知");
+    set("cameraAvailability",pending?"摄像头待接入":"状态未确认");
+    set("cameraEmptyDescription",pending?"USB 摄像头尚未接入":"暂未获取现场画面");
+    set("visionUpdated",vision?"更新于 "+timeText(Date.now()/1000):"状态读取失败");
+    $("visionUpdated").dataset.error=String(!vision);
+  }
+  function renderVisionEvents(data) {
+    const events=data?.events?.slice(0,4)||[],state=!data?"error":events.length?"ready":"empty";
+    $("visionEvents").dataset.state=state;$("visionEvents").setAttribute("aria-busy","false");
+    $("visionEventsState").hidden=state==="ready";$("visionEventList").hidden=state!=="ready";
+    $("visionEvidenceNote").hidden=state!=="ready";
+    set("visionEventSummary",data?"全部模式 · "+(data.total?"最近 "+events.length+" 条 / 共 "+data.total+" 条":"0 条记录"):"记录读取失败");
+    set("visionEventsStateTitle",state==="error"?"明火事件读取失败":"暂无明火事件");
+    set("visionEventsStateDescription",state==="error"?"请检查后台连接，点击右上角刷新重试。":"检测启用后，触发的明火事件将在这里显示。");
+    $("visionEventList").replaceChildren(...events.map(event=>{
+      const item=node("li",""),when=node("time",timeText(event.ts)),copy=node("div","","vision-event-copy");
+      when.dateTime=new Date(event.ts*1000).toISOString();
+      when.append(node("small",new Date(event.ts*1000).toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit"})));
+      copy.append(node("p",event.reason),node("span","#"+event.id+" · "+(event.is_demo?"模拟数据":"实际采集")+" · "+(modes[event.mode]||event.mode)));
+      item.append(when,copy,node("span",event.level==="green"?"恢复记录":levels[event.level]||"状态未知","vision-event-level "+event.level));
+      return item;
+    }));
   }
   function renderDevices(data) {
     const sample=data.sample;
@@ -389,15 +420,16 @@
     $("eventRows").replaceChildren(...rows);
   }
   async function refreshPageEvents(){
-    if(page!=="overview" && page!=="alerts")return;
+    if(!["overview","alerts","vision"].includes(page))return;
     const version=++queryVersion;
     const params=page==="overview"?new URLSearchParams({mode:currentMode||"hybrid"}):new URLSearchParams(appliedAlertParams);
     params.set("page",page==="alerts"?eventPage:1);
+    if(page==="vision")params.set("source","vision");
     try{
       const data=await api("/api/alerts?"+params);if(version!==queryVersion)return;
-      if(page==="overview")renderRecent(data);else{renderEventTable(data);set("alertMessage","");}
+      if(page==="overview")renderRecent(data);else if(page==="vision")renderVisionEvents(data);else{renderEventTable(data);set("alertMessage","");}
       lastPageEventsAt=Date.now();
-    }catch(error){set("alertMessage",error.message);if($("recentList"))$("recentList").replaceChildren(node("div","告警记录读取失败","empty"));}
+    }catch(error){if(version!==queryVersion)return;if(page==="vision")renderVisionEvents(null);set("alertMessage",error.message);if($("recentList"))$("recentList").replaceChildren(node("div","告警记录读取失败","empty"));}
   }
   async function refreshQueue(){
     if(page!=="devices")return;
@@ -527,6 +559,11 @@
     $("prevPage").addEventListener("click",()=>{if(eventPage>1){eventPage--;refreshPageEvents();}});
     $("nextPage").addEventListener("click",()=>{if(eventPage<eventPages){eventPage++;refreshPageEvents();}});
   }
+  $("refreshVision")?.addEventListener("click",async()=>{
+    const button=$("refreshVision");button.disabled=true;set("visionUpdated","正在刷新");
+    try{renderStatus(await api("/api/status"));}catch(_){markOffline();}
+    await refreshPageEvents();button.disabled=false;
+  });
   $("closeDialog").addEventListener("click",()=>$("eventDialog").close());
   window.addEventListener("resize",()=>chart?.resize());
   const clock=()=>{const now=new Date();set("date",now.toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit",weekday:"short"}));set("clock",now.toLocaleTimeString("zh-CN",{hour12:false}));};
