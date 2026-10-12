@@ -18,6 +18,15 @@
 - 数据自动更新，顶部保留手动刷新。后台断开后清空实时读数，保留静态设备配置；队列读取失败单独提示，旧响应不会覆盖更新的结果。
 - 手机上表格保留可横向滚动区域，通信与邮件区移到清单下方；桌面继续使用固定侧栏。
 
+### 评审后的细节调整
+
+- 模拟来源用黄褐色，实际采集用绿色，待接入、待联调和无有效数据用灰色；保留逐项来源，便于后续混合联调。
+- 设备页辅助文字至少 12px，提升说明、单位与邮件队列标签的对比度；模拟说明改为“模拟读数仅用于功能演示与联调，不代表硬件已连接。”
+- 订阅主题右侧支持点击或键盘复制，成功显示“已复制”，失败时选中主题并提示手动复制；缺少主题或后台断线时禁用按钮。
+- 原有页面结构、底部留白以及共用顶栏保持不变。
+
+复制优先使用 [Clipboard API](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText)。普通 HTTP 环境下尝试选区复制；该兼容路径使用的 [execCommand](https://developer.mozilla.org/en-US/docs/Web/API/Document/execCommand) 已弃用，不保证所有浏览器支持，因此保留明确的手动复制提示。
+
 设计参考：[shadcn-admin 用户列表](https://shadcn-admin.netlify.app/users)、[ThingsBoard 设备文档](https://thingsboard.io/docs/user-guide/devices/)。取用其信息组织与列表布局思路，实现仍为原生 HTML / CSS / JavaScript，没有复制第三方代码或示例数据。
 
 ## 验证与边界

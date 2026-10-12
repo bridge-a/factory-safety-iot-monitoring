@@ -16,7 +16,7 @@
   let loadedHistoryQuery = null, historyState = "loading", historyExportBusy = false;
   let controlBusy = false, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
   let appliedAlertParams = new URLSearchParams();
-  let deviceQueueVersion = 0;
+  let deviceQueueVersion = 0, deviceCopyBusy = false, deviceCopyTimer = null;
   try {const saved=JSON.parse(sessionStorage.getItem("factory-event-cursor")); if(saved && Number.isInteger(saved.cursor)){eventCursor=saved.cursor;eventStream=saved.stream;}} catch (_) {}
   const timeText = (ts, full=false) => ts ? new Date(ts*1000).toLocaleString("zh-CN",{
     ...(full?{year:"numeric",month:"2-digit",day:"2-digit"}:{}),hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false
@@ -74,7 +74,7 @@
     if(page==="devices"){
       $("devicesWorkspace").dataset.state="error";$("devicesWorkspace").setAttribute("aria-busy","false");
       setDeviceState("deviceEsp","状态未知");setDeviceState("deviceMqttState","未知");setDeviceState("deviceMail","未知");
-      ["deviceName","deviceReceived","deviceMqttTopic","deviceDemoMail"].forEach(id=>set(id,"—"));
+      ["deviceName","deviceReceived","deviceDemoMail"].forEach(id=>set(id,"—"));setDeviceTopic(null);
       set("deviceMqtt","连接恢复后更新通信状态");set("devicesFeedback",message+"，请检查后台连接后刷新。");
       set("deviceUpdated","连接中断");$("deviceUpdated").dataset.state="error";
       document.querySelectorAll("[data-device-reading]").forEach(el=>{el.dataset.state="unknown";el.querySelector("[data-device-value]").textContent="—";});
@@ -177,6 +177,34 @@
     const el=$(id);if(!el)return;el.dataset.state=state;
     if(el.textContent!==text)el.textContent=text;
   }
+  function setDeviceTopic(topic){
+    const value=typeof topic==="string"?topic.trim():"",el=$("deviceMqttTopic");
+    if(el.textContent!==(value||"—")){
+      el.textContent=value||"—";clearTimeout(deviceCopyTimer);set("deviceCopyFeedback","");
+    }
+    $("copyDeviceTopic").disabled=!value||deviceCopyBusy;
+  }
+  async function copyDeviceTopic(){
+    const button=$("copyDeviceTopic"),el=$("deviceMqttTopic"),topic=el.textContent;
+    if(button.disabled)return;
+    deviceCopyBusy=true;button.disabled=true;clearTimeout(deviceCopyTimer);set("deviceCopyFeedback","");
+    let copied=false;
+    try{
+      if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(topic);copied=true;}
+    }catch(_){}
+    if(!copied && el.textContent===topic){
+      // Some local HTTP deployments only support copying the current selection.
+      const selection=window.getSelection(),range=document.createRange();
+      range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);
+      try{copied=document.execCommand("copy");}catch(_){}
+      if(copied)selection.removeAllRanges();
+    }
+    deviceCopyBusy=false;button.disabled=el.textContent==="—";
+    if(el.textContent!==topic)return;
+    set("deviceCopyFeedback",copied?"已复制":"自动复制失败，请手动复制上方主题。");
+    $("deviceCopyFeedback").dataset.state=copied?"success":"error";
+    if(copied)deviceCopyTimer=setTimeout(()=>set("deviceCopyFeedback",""),2500);
+  }
   function renderDevices(data) {
     const sample=data.sample;
     $("devicesWorkspace").dataset.state="ready";$("devicesWorkspace").setAttribute("aria-busy","false");
@@ -185,7 +213,7 @@
     set("deviceName",sample.hardware_device||"等待设备上报");
     set("deviceReceived",sample.received_at?timeText(sample.received_at,true):"尚无上报");
     setDeviceState("deviceMqttState",data.mqtt.connected?"已连接":"未连接",data.mqtt.connected?"ready":"pending");
-    set("deviceMqtt",data.mqtt.detail);set("deviceMqttTopic",data.mqtt.topic||"—");
+    set("deviceMqtt",data.mqtt.detail);setDeviceTopic(data.mqtt.topic);
     setDeviceState("deviceMail",data.mail.config_error?"配置有误":data.mail.enabled?"已启用":"未启用",data.mail.config_error?"error":data.mail.enabled?"ready":"unknown");
     set("deviceDemoMail",data.mail.allow_demo?"允许发送":"不发送");
     document.querySelectorAll("[data-device-reading]").forEach(el=>{
@@ -199,7 +227,7 @@
     });
     setDeviceState("deviceVisionState",data.vision?.state==="pending"?"待接入":"状态未知",data.vision?.state==="pending"?"pending":"unknown");
     setDeviceState("deviceSoundState",data.sound_light?.state==="pending"?"待联调":"状态未知",data.sound_light?.state==="pending"?"pending":"unknown");
-    set("deviceDataNote",data.mode==="demo"?"当前为模拟读数；设备在线状态以实际上报为准。":data.mode==="hybrid"?"烟雾使用模拟读数，其余指标以有效的实际上报为准。":"当前显示实际采集读数；缺失或过期值保留为空。");
+    set("deviceDataNote",data.mode==="demo"?"模拟读数仅用于功能演示与联调，不代表硬件已连接。":data.mode==="hybrid"?"烟雾使用模拟读数，其余指标以有效的实际上报为准。":"当前显示实际采集读数；缺失或过期值保留为空。");
   }
   function renderDeviceQueue(data){
     const counts=data?.mail_counts;
@@ -588,6 +616,7 @@
     try{renderStatus(await api("/api/status"));}catch(_){markOffline();}
     await refreshPageEvents();button.disabled=false;
   });
+  $("copyDeviceTopic")?.addEventListener("click",copyDeviceTopic);
   $("refreshDevices")?.addEventListener("click",async()=>{
     const button=$("refreshDevices");button.disabled=true;
     try{renderStatus(await api("/api/status"));await refreshQueue();}catch(_){markOffline();}

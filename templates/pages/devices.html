@@ -32,13 +32,13 @@
           <tr data-device-row="sound"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('alerts') }}</span><div><strong>蜂鸣器 / LED</strong><small>本地声光报警</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceSoundState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note">实物动作需接线后验证</td></tr>
         </tbody></table>
       </div>
-      <p class="devices-data-note" id="deviceDataNote">模拟数值仅用于联调，设备在线状态以实际上报为准。</p>
+      <p class="devices-data-note" id="deviceDataNote">模拟读数仅用于功能演示与联调，不代表硬件已连接。</p>
     </section>
 
     <aside class="devices-services" aria-label="通信与通知状态">
       <section class="devices-service" aria-labelledby="deviceMqttTitle">
         <div class="devices-section-heading"><h2 id="deviceMqttTitle">节点通信</h2><span id="deviceMqttState" class="device-state" data-state="unknown">正在读取</span></div>
-        <dl class="devices-service-facts"><div><dt>通信协议</dt><dd>Wi-Fi / MQTT</dd></div><div class="device-topic"><dt>订阅主题</dt><dd><code id="deviceMqttTopic">—</code></dd></div></dl>
+        <dl class="devices-service-facts"><div><dt>通信协议</dt><dd>Wi-Fi / MQTT</dd></div><div class="device-topic"><dt>订阅主题</dt><dd><div class="device-topic-value"><code id="deviceMqttTopic">—</code><button id="copyDeviceTopic" class="device-copy-button" type="button" aria-label="复制订阅主题" title="复制订阅主题" disabled>{{ icon('copy') }}</button></div><span id="deviceCopyFeedback" class="device-copy-feedback" role="status"></span></dd></div></dl>
         <p id="deviceMqtt" class="devices-service-note">正在确认消息连接</p>
         <p class="devices-service-caption">连续 20 秒无新报文，采样视为过期。</p>
       </section>
