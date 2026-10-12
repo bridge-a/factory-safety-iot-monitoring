@@ -16,6 +16,7 @@
   let loadedHistoryQuery = null, historyState = "loading", historyExportBusy = false;
   let controlBusy = false, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
   let appliedAlertParams = new URLSearchParams();
+  let deviceQueueVersion = 0;
   try {const saved=JSON.parse(sessionStorage.getItem("factory-event-cursor")); if(saved && Number.isInteger(saved.cursor)){eventCursor=saved.cursor;eventStream=saved.stream;}} catch (_) {}
   const timeText = (ts, full=false) => ts ? new Date(ts*1000).toLocaleString("zh-CN",{
     ...(full?{year:"numeric",month:"2-digit",day:"2-digit"}:{}),hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false
@@ -71,9 +72,16 @@
       card.querySelector('[data-role="time"]').textContent="--:--:--";
     });
     if(page==="devices"){
-      ["deviceEsp","deviceName","deviceReceived","deviceMqtt","deviceMail","deviceDemoMail","queuePending","queueResult"].forEach(id=>set(id,"未知"));
-      $("deviceRows").replaceChildren();
-      const row=node("tr",""),cell=node("td","后台连接中断，无法确认设备状态","empty");cell.colSpan=5;row.append(cell);$("deviceRows").append(row);
+      $("devicesWorkspace").dataset.state="error";$("devicesWorkspace").setAttribute("aria-busy","false");
+      setDeviceState("deviceEsp","状态未知");setDeviceState("deviceMqttState","未知");setDeviceState("deviceMail","未知");
+      ["deviceName","deviceReceived","deviceMqttTopic","deviceDemoMail"].forEach(id=>set(id,"—"));
+      set("deviceMqtt","连接恢复后更新通信状态");set("devicesFeedback",message+"，请检查后台连接后刷新。");
+      set("deviceUpdated","连接中断");$("deviceUpdated").dataset.state="error";
+      document.querySelectorAll("[data-device-reading]").forEach(el=>{el.dataset.state="unknown";el.querySelector("[data-device-value]").textContent="—";});
+      document.querySelectorAll("[data-device-source]").forEach(el=>{el.dataset.state="unknown";el.textContent="状态未知";});
+      setDeviceState("deviceVisionState","状态未知");setDeviceState("deviceSoundState","状态未知");
+      set("deviceDataNote","设备配置保留；连接恢复后重新读取状态和数值。");
+      deviceQueueVersion++;renderDeviceQueue(null);
     }
   }
   function renderStatus(data) {
@@ -165,32 +173,39 @@
       return item;
     }));
   }
+  function setDeviceState(id,text,state="unknown"){
+    const el=$(id);if(!el)return;el.dataset.state=state;
+    if(el.textContent!==text)el.textContent=text;
+  }
   function renderDevices(data) {
     const sample=data.sample;
-    set("deviceEsp",sample.esp32_online?"在线":"未连接");
-    set("deviceName",sample.hardware_device||"未收到设备报文");
-    set("deviceReceived",timeText(sample.received_at,true));set("deviceMqtt",data.mqtt.detail);
-    set("deviceMail",data.mail.config_error?"配置有误":data.mail.enabled?"后台邮件已启用":"未启用");
-    set("deviceDemoMail",data.mail.allow_demo?"已允许（邮件带模拟标记）":"已关闭");
-    const rows=[
-      ["SHT31","温度",numberText(sample.temp_c,"temp_c")+" °C",sources[sample.sources.temp_c],"与湿度共享 I²C 传感器"],
-      ["SHT31","相对湿度",numberText(sample.rh,"rh")+" %RH",sources[sample.sources.rh],"需使用未缩放的实际读数"],
-      ["SCD41","CO₂",numberText(sample.co2_ppm,"co2_ppm")+" ppm",sources[sample.sources.co2_ppm],"用于气体异常演示"],
-      ["MQ-2","烟雾",numberText(sample.smoke_raw,"smoke_raw")+" ADC",sources[sample.sources.smoke_raw],"相对读数；待供电、分压与预热联调"],
-      ["BH1750","光照（辅助）",sample.lux==null?"--":sample.lux.toFixed(1)+" lux",data.mode==="demo"?"模拟数据":sample.lux==null?"待接入":"实际采集","不参与当前安全告警"],
-      ["USB 摄像头","明火检测","--","待接入","摄像头、模型均未连接"],
-      ["蜂鸣器 / LED","声光报警","--","待接线联调","页面无法确认实物是否动作"]
-    ];
-    $("deviceRows").replaceChildren(...rows.map((row,index)=>{
-      const tr=node("tr",""),name=node("td","");
-      name.append(node("strong",row[0]),node("small",index<5?"环境传感器":index===5?"视觉采集":"告警执行"));tr.append(name);
-      row.slice(1).forEach((value,column)=>{
-        const td=node("td","");
-        if(column===2)td.append(node("span",value,"status-badge "+(value==="模拟数据"?"simulation":value==="实际采集"?"mqtt":"neutral")));
-        else td.textContent=value;
-        tr.append(td);
-      });return tr;
-    }));
+    $("devicesWorkspace").dataset.state="ready";$("devicesWorkspace").setAttribute("aria-busy","false");
+    set("devicesFeedback","");set("deviceUpdated","自动更新 · "+timeText(sample.ts));$("deviceUpdated").dataset.state="ready";
+    setDeviceState("deviceEsp",sample.esp32_online?"在线":sample.received_at?"离线":"未接入",sample.esp32_online?"ready":"unknown");
+    set("deviceName",sample.hardware_device||"等待设备上报");
+    set("deviceReceived",sample.received_at?timeText(sample.received_at,true):"尚无上报");
+    setDeviceState("deviceMqttState",data.mqtt.connected?"已连接":"未连接",data.mqtt.connected?"ready":"pending");
+    set("deviceMqtt",data.mqtt.detail);set("deviceMqttTopic",data.mqtt.topic||"—");
+    setDeviceState("deviceMail",data.mail.config_error?"配置有误":data.mail.enabled?"已启用":"未启用",data.mail.config_error?"error":data.mail.enabled?"ready":"unknown");
+    set("deviceDemoMail",data.mail.allow_demo?"允许发送":"不发送");
+    document.querySelectorAll("[data-device-reading]").forEach(el=>{
+      const key=el.dataset.deviceReading,value=sample[key];
+      const source=key==="lux"?(data.mode==="demo"?"simulation":value==null?"missing":"mqtt"):sample.sources[key];
+      el.dataset.state=value==null?"missing":source;
+      el.querySelector("[data-device-value]").textContent=value==null?"—":key==="lux"?Number(value).toFixed(1):numberText(value,key);
+      const sourceEl=document.querySelector('[data-device-source="'+key+'"]');
+      sourceEl.dataset.state=value==null?"missing":source;
+      sourceEl.textContent=value==null?(source==="simulation"?"模拟 · 无数据":"无有效数据"):sources[source]||"来源未知";
+    });
+    setDeviceState("deviceVisionState",data.vision?.state==="pending"?"待接入":"状态未知",data.vision?.state==="pending"?"pending":"unknown");
+    setDeviceState("deviceSoundState",data.sound_light?.state==="pending"?"待联调":"状态未知",data.sound_light?.state==="pending"?"pending":"unknown");
+    set("deviceDataNote",data.mode==="demo"?"当前为模拟读数；设备在线状态以实际上报为准。":data.mode==="hybrid"?"烟雾使用模拟读数，其余指标以有效的实际上报为准。":"当前显示实际采集读数；缺失或过期值保留为空。");
+  }
+  function renderDeviceQueue(data){
+    const counts=data?.mail_counts;
+    for(const [id,key] of [["queuePending","pending"],["queueSending","sending"],["queueSent","sent"],["queueFailed","failed"]])set(id,counts?(counts[key]||0):"—");
+    $("queueFailed").dataset.failed=String(Boolean(counts?.failed));
+    set("deviceQueueMessage",counts?"":"邮件队列读取失败，请刷新重试。");
   }
   function historyParams(){
     const params=new URLSearchParams({mode:selectedHistoryMode||currentMode||"hybrid"});
@@ -441,10 +456,10 @@
     }catch(error){if(version!==queryVersion)return;if(page==="vision")renderVisionEvents(null);set("alertMessage",error.message);if($("recentList"))$("recentList").replaceChildren(node("div","告警记录读取失败","empty"));}
   }
   async function refreshQueue(){
-    if(page!=="devices")return;
-    try{const data=await api("/api/notification_status"),counts=data.mail_counts;
-      set("queuePending",(counts.pending||0)+" / "+(counts.sending||0));set("queueResult",(counts.sent||0)+" / "+(counts.failed||0));
-    }catch(_){set("queuePending","读取失败");set("queueResult","读取失败");}
+    if(page!=="devices" || $("devicesWorkspace").dataset.state!=="ready")return;
+    const version=++deviceQueueVersion;
+    try{const data=await api("/api/notification_status");if(version===deviceQueueVersion)renderDeviceQueue(data);}
+    catch(_){if(version===deviceQueueVersion)renderDeviceQueue(null);}
   }
   async function control(body){
     if(controlBusy)return;controlBusy=true;$("modeSelect").disabled=true;
@@ -572,6 +587,11 @@
     const button=$("refreshVision");button.disabled=true;set("visionUpdated","正在刷新");
     try{renderStatus(await api("/api/status"));}catch(_){markOffline();}
     await refreshPageEvents();button.disabled=false;
+  });
+  $("refreshDevices")?.addEventListener("click",async()=>{
+    const button=$("refreshDevices");button.disabled=true;
+    try{renderStatus(await api("/api/status"));await refreshQueue();}catch(_){markOffline();}
+    finally{button.disabled=false;}
   });
   $("closeDialog").addEventListener("click",()=>$("eventDialog").close());
   window.addEventListener("resize",()=>chart?.resize());

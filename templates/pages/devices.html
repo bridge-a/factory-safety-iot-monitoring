@@ -1,18 +1,54 @@
-<div class="page-intro">
-  <div><div class="eyebrow">系统管理 / 设备接入</div><h2>设备与通知状态</h2><p>掌握采集节点、传感器与通知通道的接入情况。</p></div>
-  <a class="button primary" href="/simulation">{{ icon('simulation') }}进入模拟与联调</a>
+<div class="devices-heading">
+  <h1>设备管理</h1>
+  <div class="devices-actions"><span id="deviceUpdated" class="devices-auto" data-state="loading">正在读取</span><button class="button" id="refreshDevices" type="button">{{ icon('refresh') }}刷新</button><a class="button" href="/simulation">模拟与联调 {{ icon('arrow-right') }}</a></div>
 </div>
-<section class="node-banner"><div class="node-identity"><span class="node-emblem">{{ icon('factory') }}</span><div><span>工厂模拟区 · 01</span><h3>环境采集节点</h3><p>ESP32-S3 · 单节点采集</p></div></div><div class="node-connection"><span>实际设备连接</span><strong id="deviceEsp">等待检测</strong><small>与模拟数据状态分别显示</small></div><div class="node-received"><span>最近实际上报</span><strong id="deviceReceived">--</strong><small>连续 20 秒无新数据视为过期</small></div></section>
-<div class="device-workspace">
-  <section class="panel inventory-panel"><div class="panel-heading"><div><h2>{{ icon('devices') }}传感器与执行器</h2><p class="section-subtitle">实时读数与数据来源</p></div><span class="subtle-badge">工厂模拟区</span></div>
-    <div class="table-wrap"><table class="device-table"><thead><tr><th>器件 / 用途</th><th>监测项</th><th>当前值</th><th>来源 / 状态</th><th>接入说明</th></tr></thead><tbody id="deviceRows"></tbody></table></div>
-    <div class="inventory-footer">{{ icon('shield') }}<span>模拟数值仅用于联调，不代表硬件已连接。</span></div>
+
+<div id="devicesWorkspace" data-state="loading" aria-busy="true">
+  <section class="device-node-summary" aria-labelledby="deviceNodeTitle">
+    <div class="device-node-identity"><span class="device-node-symbol">{{ icon('devices') }}</span><div><h2 id="deviceNodeTitle">环境采集节点 <span>ESP32-S3</span></h2><p>工厂模拟区 · 01</p></div></div>
+    <div class="device-node-field"><span>实际设备连接</span><strong id="deviceEsp" class="device-state" data-state="unknown">正在读取</strong></div>
+    <div class="device-node-field"><span>设备标识</span><strong id="deviceName">等待上报</strong></div>
+    <div class="device-node-field device-last-seen"><span>最近实际上报</span><strong id="deviceReceived">—</strong></div>
   </section>
-  <aside class="device-side">
-    <section class="panel"><div class="panel-heading"><h2>{{ icon('link') }}节点通信</h2><span class="mini-label">MQTT</span></div><dl class="detail-list"><div><dt>设备名称</dt><dd id="deviceName">--</dd></div><div><dt>消息连接</dt><dd id="deviceMqtt">等待检测</dd></div></dl><div class="side-note">节点上线后，实际数据将替换对应的待接入状态。</div></section>
-    <section class="panel mail-panel"><div class="panel-heading"><h2>{{ icon('mail') }}邮件通知</h2><span class="mini-label">QQ 邮箱</span></div>
-      <div class="channel-summary"><span class="icon-tile">{{ icon('mail') }}</span><div><strong id="deviceMail">未启用</strong><span>后台告警通知</span></div></div>
-      <dl class="detail-list"><div><dt>模拟事件邮件</dt><dd id="deviceDemoMail">默认关闭</dd></div><div><dt>等待投递 / 发送中</dt><dd id="queuePending">--</dd></div><div><dt>已提交 / 失败</dt><dd id="queueResult">--</dd></div></dl><div class="side-note">“已提交”表示邮件服务器已接受。邮箱授权信息在主机本地配置。</div>
+  <p class="devices-feedback" id="devicesFeedback" role="status"></p>
+
+  <div class="devices-layout">
+    <section class="devices-inventory" aria-labelledby="deviceInventoryTitle">
+      <div class="devices-section-heading"><h2 id="deviceInventoryTitle">设备清单 <span>6 项配置</span></h2><span class="devices-scroll-hint">左右滑动查看</span></div>
+      <div class="devices-table-wrap" tabindex="0" role="region" aria-label="设备清单，可横向滚动">
+        <table class="devices-table"><thead><tr><th scope="col">设备 / 用途</th><th scope="col">当前读数</th><th scope="col">来源 / 状态</th><th scope="col">说明</th></tr></thead><tbody id="deviceRows">
+        {% set equipment = [
+          ('sht31', 'SHT31', '温度 · 相对湿度', 'temp_c', [('temp_c', '°C'), ('rh', '%RH')], '温湿度由同一器件采集'),
+          ('scd41', 'SCD41', 'CO₂ 浓度', 'co2_ppm', [('co2_ppm', 'ppm')], '用于气体异常演示'),
+          ('mq2', 'MQ-2', '烟雾相对值', 'smoke_raw', [('smoke_raw', 'ADC')], '接入后需预热与阈值标定'),
+          ('bh1750', 'BH1750', '环境光照', 'light', [('lux', 'lux')], '辅助读数，不参与安全告警')
+        ] %}
+        {% for key, name, purpose, symbol, readings, note in equipment %}
+          <tr data-device-row="{{ key }}"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon(symbol) }}</span><div><strong>{{ name }}</strong><small>{{ purpose }}</small></div></div></th>
+            <td><div class="device-cell-stack">{% for metric, unit in readings %}<div class="device-reading" data-device-reading="{{ metric }}"><strong data-device-value>—</strong><span>{{ unit }}</span></div>{% endfor %}</div></td>
+            <td><div class="device-cell-stack">{% for metric, unit in readings %}<span class="device-source" data-device-source="{{ metric }}" data-state="unknown">等待读取</span>{% endfor %}</div></td><td class="device-note">{{ note }}</td></tr>
+        {% endfor %}
+          <tr data-device-row="vision"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('vision') }}</span><div><strong>USB 摄像头</strong><small>明火视觉检测</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceVisionState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note"><a class="devices-text-link" href="/vision">查看明火检测 {{ icon('arrow-right') }}</a></td></tr>
+          <tr data-device-row="sound"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('alerts') }}</span><div><strong>蜂鸣器 / LED</strong><small>本地声光报警</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceSoundState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note">实物动作需接线后验证</td></tr>
+        </tbody></table>
+      </div>
+      <p class="devices-data-note" id="deviceDataNote">模拟数值仅用于联调，设备在线状态以实际上报为准。</p>
     </section>
-  </aside>
+
+    <aside class="devices-services" aria-label="通信与通知状态">
+      <section class="devices-service" aria-labelledby="deviceMqttTitle">
+        <div class="devices-section-heading"><h2 id="deviceMqttTitle">节点通信</h2><span id="deviceMqttState" class="device-state" data-state="unknown">正在读取</span></div>
+        <dl class="devices-service-facts"><div><dt>通信协议</dt><dd>Wi-Fi / MQTT</dd></div><div class="device-topic"><dt>订阅主题</dt><dd><code id="deviceMqttTopic">—</code></dd></div></dl>
+        <p id="deviceMqtt" class="devices-service-note">正在确认消息连接</p>
+        <p class="devices-service-caption">连续 20 秒无新报文，采样视为过期。</p>
+      </section>
+      <section class="devices-service devices-mail" aria-labelledby="deviceMailTitle">
+        <div class="devices-section-heading"><h2 id="deviceMailTitle">邮件通知</h2><span id="deviceMail" class="device-state" data-state="unknown">正在读取</span></div>
+        <dl class="devices-service-facts"><div><dt>通知通道</dt><dd>QQ 邮箱 · SMTP</dd></div><div><dt>模拟事件邮件</dt><dd id="deviceDemoMail">—</dd></div></dl>
+        <div class="devices-mail-queue" aria-label="邮件队列记录"><div><span>等待投递</span><strong id="queuePending">—</strong></div><div><span>发送中</span><strong id="queueSending">—</strong></div><div><span>已提交</span><strong id="queueSent">—</strong></div><div><span>发送失败</span><strong id="queueFailed">—</strong></div></div>
+        <p id="deviceQueueMessage" class="devices-queue-message" role="status"></p>
+        <p class="devices-service-caption">已提交表示邮件服务器已接受；授权信息在主机本地配置。</p>
+      </section>
+    </aside>
+  </div>
 </div>
