@@ -85,7 +85,7 @@ def main():
             expect(page.locator("#statTotal")).not_to_have_text("--")
             page.get_by_role("button",name="24 小时",exact=True).click()
             expect(page.locator("#historyMessage")).to_contain_text("1440")
-            page.locator("#chartMetric").select_option("temp_c")
+            page.locator('[data-history-metric="temp_c"]').click()
             expect(page.locator(".statUnit").first).to_have_text("°C")
             page.locator("#historyMode").select_option("live")
             expect(page.locator("#statTotal")).to_have_text("0")
@@ -163,6 +163,22 @@ def main():
             expect(page.locator("#connection")).to_have_text("后台连接中断",timeout=11000)
             expect(page.locator('[data-metric="temp_c"] [data-role="value"]')).to_have_text("--")
             checks.append("offline state clears live gauges")
+            page.close()
+            page=browser.new_page(viewport={"width":1366,"height":768})
+            page.on("pageerror",lambda error:errors.append(str(error)))
+            delayed_status=[]
+            page.route("**/api/status",lambda route:delayed_status.append(route))
+            page.goto(url+"/simulation")
+            with page.expect_response("**/api/simulation"):
+                page.locator('[data-scenario="normal"]').click()
+            expect(page.locator("#controlMessage")).to_have_text("已应用，后台持续采样")
+            expect(page.locator("#simWarning")).to_have_text("--")
+            for route in delayed_status:
+                route.continue_()
+            page.unroute("**/api/status")
+            expect(page.locator("#simWarning")).to_have_text("1200")
+            expect(page.locator("#simAlarm")).to_have_text("2000")
+            checks.append("simulation controls can finish before initial status without reading unavailable thresholds")
             browser.close()
         assert not errors, errors
         report={"status":"passed","checks":checks,"layouts":layouts,"javascript_errors":errors,"real_email_sent":False,"hardware_connected":False}

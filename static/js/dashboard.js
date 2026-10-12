@@ -13,6 +13,7 @@
   let status = null, thresholds = {}, currentMode = null, eventCursor = null, eventStream = null;
   let minutes = 10, selectedHistoryMode = null, customRange = null, historyWindow = null, historyPoints = [], stats = null;
   let chart = null, historyVersion = 0, lastHistoryAt = 0, lastPageEventsAt = 0;
+  let loadedHistoryQuery = null, historyState = "loading", historyExportBusy = false;
   let controlBusy = false, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
   let appliedAlertParams = new URLSearchParams();
   try {const saved=JSON.parse(sessionStorage.getItem("factory-event-cursor")); if(saved && Number.isInteger(saved.cursor)){eventCursor=saved.cursor;eventStream=saved.stream;}} catch (_) {}
@@ -40,6 +41,7 @@
   }
   function markOffline(message="后台连接中断") {
     connection(message,"red");
+    setHistoryAuto("error", "连接中断");
     renderRiskIndicator("gray","状态未知",message+"，无法确认当前环境风险");
     ["espStatus","mqttStatus","databaseStatus","mailStatus"].forEach(id=>set(id,"未知"));
     set("riskLabel","状态未知");if($("riskLabel"))$("riskLabel").style.color="var(--muted)";
@@ -70,7 +72,7 @@
     if(currentMode!==data.mode) {
       currentMode=data.mode;lastPageEventsAt=0;
       if(page==="overview" || !selectedHistoryMode){selectedHistoryMode=data.mode;historyPoints=[];stats=null;historyVersion++;lastHistoryAt=0;}
-      if($("historyMode") && !$("historyMode").dataset.initialized){$("historyMode").value=data.mode;$("historyMode").dataset.initialized="1";}
+      if($("historyMode") && !$("historyMode").dataset.initialized){$("historyMode").value=selectedHistoryMode||data.mode;$("historyMode").dataset.initialized="1";}
     }
     set("modeLabel",modes[data.mode]);
     set("modeDescription",data.mode==="demo"?"所有数值均为模拟，仅用于功能演示":data.mode==="hybrid"?"烟雾模拟；其余指标以实际上报为准":"仅显示有效的实际传感器读数");
@@ -117,7 +119,7 @@
     set("simState",sample.smoke_raw==null?"烟雾数据无效":(sources[sample.sources.smoke_raw]||"")+" · "+levels[sample.channels.smoke_raw.level]);
     if(page==="simulation"){
       set("simSamplingStatus",sample.smoke_raw==null?"数据待接入":"后台采样");
-      set("simWarning",thresholds.smoke_raw.yellow);set("simAlarm",thresholds.smoke_raw.red);
+      set("simWarning",thresholds.smoke_raw?.yellow ?? "--");set("simAlarm",thresholds.smoke_raw?.red ?? "--");
       $("simReadingPanel").dataset.level=sample.channels.smoke_raw.level;
       $("simIndicator").style.width=(sample.smoke_raw==null?0:Math.max(0,Math.min(100,sample.smoke_raw/4095*100)))+"%";
     }
@@ -156,15 +158,65 @@
     return params;
   }
   function selectedMetric(){return $("chartMetric")?.value || "smoke_raw";}
+  function setHistoryAuto(state, text){
+    if(!$("historyAutoState"))return;
+    $("historyAutoState").dataset.state=state;set("historyAutoState",text);
+  }
+  function historyFeedback(text, error=false){
+    set("historyMessage",text);if($("historyMessage"))$("historyMessage").dataset.error=String(error);
+  }
+  function setHistoryState(state){
+    if(page!=="history")return;
+    historyState=state;$("historyPanel").dataset.state=state;
+    $("historyPanel").setAttribute("aria-busy",String(state==="loading"));
+    $("historyChartState").hidden=state==="ready";
+    $("retryHistory").hidden=state!=="error";
+    const messages={loading:["正在读取历史数据","查询结果将在这里显示"],empty:["所选时段暂无采样","可以切换数据模式，或选择其他时间范围。"],
+      missing:["该指标暂无有效读数","缺失读数保留为空，其他指标仍可切换查看。"],error:["历史数据读取失败","请检查后台连接，然后重新查询。"],
+      chartMissing:["图表组件未加载","刷新页面重试，采样明细和 CSV 导出仍可使用。"]};
+    if(messages[state]){set("historyStateTitle",messages[state][0]);set("historyStateDescription",messages[state][1]);}
+    $("exportHistory").disabled=historyExportBusy || !stats?.total || ["loading","error"].includes(state);
+  }
   function updateHistoryStats(){
-    if(!stats || !$("statTotal"))return;
-    const key=selectedMetric(),item=stats.metrics[key],rule=thresholds[key];
-    set("statTotal",stats.total);set("statValid",item.valid+" 条有效 / "+(stats.total-item.valid)+" 条无效");
-    set("statMin",numberText(item.min,key));set("statMax",numberText(item.max,key));set("statAvg",item.avg==null?"--":item.avg.toFixed(1));
+    if(!$("statTotal"))return;
+    const key=selectedMetric(),rule=thresholds[key];if(!rule)return;
     document.querySelectorAll(".statUnit").forEach(el=>el.textContent=rule.unit);
+    set("historyMetricTitle",rule.label);set("historyWarning",rule.yellow);set("historyAlarm",rule.red);
+    document.querySelectorAll("[data-history-column]").forEach(el=>el.classList.toggle("is-selected",el.dataset.historyColumn===key));
+    if(!stats){["statTotal","statMin","statMax","statAvg"].forEach(id=>set(id,"--"));set("statValid","等待查询");return;}
+    const item=stats.metrics[key];
+    set("statTotal",stats.total);set("statValid","有效 "+item.valid+" · 缺失 "+(stats.total-item.valid));
+    set("statMin",numberText(item.min,key));set("statMax",numberText(item.max,key));set("statAvg",item.avg==null?"--":item.avg.toFixed(1));
+  }
+  function drawHistoryChart(){
+    updateHistoryStats();
+    const key=selectedMetric(),rule=thresholds[key];if(!rule)return;
+    if(!stats){setHistoryState(historyState);return;}
+    if(!window.echarts){setHistoryState("chartMissing");return;}
+    if(!chart)chart=echarts.init($("historyChart"));
+    const mobile=window.innerWidth<=720;
+    chart.setOption({animation:false,textStyle:{fontFamily:'"Microsoft YaHei",sans-serif'},
+      grid:{left:mobile?43:53,right:mobile?19:25,top:24,bottom:32},
+      tooltip:{trigger:"axis",confine:true,backgroundColor:"#fff",borderColor:"#dfe7e1",textStyle:{color:"#405749",fontSize:12},
+        axisPointer:{type:"line",lineStyle:{color:"#a5b8ab",type:"dashed"}},
+        valueFormatter:value=>value==null?"无有效数据":numberText(value,key)+" "+rule.unit},
+      xAxis:{type:"time",min:historyWindow?.since*1000,max:historyWindow?.until*1000,splitNumber:mobile?3:7,
+        axisLine:{lineStyle:{color:"#e4eae4"}},axisTick:{show:false},axisLabel:{color:"#829084",fontSize:11,hideOverlap:true,
+          formatter:value=>new Date(value).toLocaleTimeString("zh-CN",{hour:"2-digit",minute:"2-digit",hour12:false})}},
+      yAxis:{type:"value",min:range=>Math.min(0,Math.floor(range.min||0)),max:range=>{
+          const step=key==="temp_c"?5:key==="rh"?10:500;return Math.ceil(Math.max(range.max||0,rule.red)*1.1/step)*step;
+        },splitNumber:4,
+        axisLabel:{color:"#829084",fontSize:10},splitLine:{lineStyle:{color:"#edf0eb",type:"dashed"}}},
+      series:[{name:rule.label,type:"line",showSymbol:historyPoints.length<12,symbol:"circle",symbolSize:5,connectNulls:false,
+        data:historyPoints.map(row=>[row.ts*1000,row[key]]),lineStyle:{width:2,color:"#32765c"},itemStyle:{color:"#32765c"},
+        areaStyle:{color:"#6fa488",opacity:.055},markLine:{silent:true,symbol:"none",label:{show:false},
+          data:[{yAxis:rule.yellow,lineStyle:{color:"#bda165",width:1,type:"dashed"}},{yAxis:rule.red,lineStyle:{color:"#cd9a91",width:1,type:"dashed"}}]}}]},true);
+    $("historyChart").setAttribute("aria-label",rule.label+"历史折线图，单位 "+rule.unit+"，预警阈值 "+rule.yellow+"，报警阈值 "+rule.red);
+    setHistoryState(!stats.total?"empty":stats.metrics[key].valid?"ready":"missing");
   }
   function drawChart(){
     if(!$("historyChart"))return;
+    if(page==="history"){drawHistoryChart();return;}
     if(!window.echarts){$("historyChart").textContent="图表组件未加载，请刷新页面";return;}
     if(!chart)chart=echarts.init($("historyChart"));
     const key=selectedMetric(),rule=thresholds[key];if(!rule)return;
@@ -181,16 +233,35 @@
   }
   async function refreshHistory(){
     if(!$("historyChart") || !currentMode)return;
-    const version=++historyVersion;
+    const version=++historyVersion,params=historyParams(),query=params.toString();
+    lastHistoryAt=Date.now();
+    if(page==="history" && query!==loadedHistoryQuery){
+      historyPoints=[];stats=null;setHistoryState("loading");updateHistoryStats();
+      set("historyRangeText","正在查询…");set("historyCount","正在读取采样…");set("historyUpdated","");
+      $("sampleRows").replaceChildren();const tr=node("tr",""),td=node("td","正在读取采样…","empty");td.colSpan=6;tr.append(td);$("sampleRows").append(tr);
+    }
     try {
-      const data=await api("/api/history?"+historyParams());
+      const data=await api("/api/history?"+params);
       if(version!==historyVersion)return;
       historyPoints=data.points;stats=data.statistics;historyWindow={since:data.since,until:data.until};
+      loadedHistoryQuery=query;
       set("historyCount",stats.total+" 条采样 · "+historyPoints.length+" 个展示点");
-      set("historyNote",modes[data.mode]+" · 虚线为演示阈值 · 最多展示 600 个抽样点，统计与导出使用全部采样");
+      set("historyNote",page==="history"?modes[data.mode]+" · 统计与导出使用全部采样，缺失读数不计入平均值。":modes[data.mode]+" · 虚线为演示阈值 · 最多展示 600 个抽样点，统计与导出使用全部采样");
+      if(page==="history"){
+        set("historyRangeText",timeText(data.since,true)+" — "+timeText(data.until,true)+"（本地时间）");
+        set("historyUpdated","更新于 "+timeText(Date.now()/1000));
+        set("sampleTableNote","最近 "+Math.min(20,historyPoints.length)+" / "+historyPoints.length+" 个展示点");
+        setHistoryAuto("ready",customRange?"固定查询时段":"每 10 秒更新");
+        if($("historyMessage").dataset.error==="true")historyFeedback("");
+      }
       if($("sampleRows")){
         const rows=historyPoints.slice(-20).reverse().map(sample=>{
-          const tr=node("tr","");[timeText(sample.ts,true),...["temp_c","rh","co2_ppm","smoke_raw"].map(key=>numberText(sample[key],key)),modes[sample.mode]].forEach(value=>tr.append(node("td",value)));return tr;
+          const tr=node("tr",""),date=node("td",""),time=node("span",timeText(sample.ts),"sample-time");
+          time.append(node("span",new Date(sample.ts*1000).toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit"}),"sample-date"));date.append(time);tr.append(date);
+          for(const key of ["temp_c","rh","co2_ppm","smoke_raw"]){
+            const td=node("td",sample[key]==null?"—":numberText(sample[key],key));td.dataset.historyColumn=key;td.classList.toggle("is-missing",sample[key]==null);tr.append(td);
+          }
+          const mode=node("td","");mode.append(node("span",modes[sample.mode],"sample-mode "+sample.mode));tr.append(mode);return tr;
         });
         if(!rows.length){const tr=node("tr",""),td=node("td","所选时段暂无采样数据","empty");td.colSpan=6;tr.append(td);rows.push(tr);}
         $("sampleRows").replaceChildren(...rows);
@@ -202,6 +273,10 @@
       ["statTotal","statMin","statMax","statAvg"].forEach(id=>set(id,"--"));
       set("statValid","读取失败");set("historyCount","历史读取失败");set("historyMessage",error.message);
       set("historyNote","本次查询未成功，请检查连接后重试。");
+      if(page==="history"){
+        setHistoryState("error");setHistoryAuto("error","查询失败");historyFeedback(error.message,true);
+        set("historyRangeText","查询范围未加载");set("historyUpdated","");set("sampleTableNote","未加载");
+      }
       if($("sampleRows")){$("sampleRows").replaceChildren();const tr=node("tr",""),td=node("td","本次查询未成功","empty");td.colSpan=6;tr.append(td);$("sampleRows").append(tr);}
     }
   }
@@ -350,10 +425,21 @@
     setTimeout(poll,2000);
   }
   function resetHistoryView(){
-    minutes=10;customRange=null;set("historyMessage","最近 10 分钟，自动更新");
+    minutes=10;customRange=null;historyFeedback("");
     $("historyFrom").value="";$("historyTo").value="";
-    document.querySelectorAll("[data-minutes]").forEach(button=>button.classList.toggle("selected",Number(button.dataset.minutes)===minutes));
+    updateHistoryRangeControls();
     historyVersion++;refreshHistory();
+  }
+  function updateHistoryRangeControls(){
+    document.querySelectorAll("[data-minutes]").forEach(button=>{
+      const active=!customRange && Number(button.dataset.minutes)===minutes;
+      button.classList.toggle("selected",active);button.setAttribute("aria-pressed",String(active));
+    });
+    if($("historyDate")){
+      $("historyDate").open=false;$("historyDate").classList.toggle("has-range",Boolean(customRange));
+      set("historyDateLabel",customRange?"已选时段":"自选时段");set("historyRangeError","");
+      $("historyFrom").removeAttribute("aria-invalid");$("historyTo").removeAttribute("aria-invalid");
+    }
   }
   function localInputDate(value){return new Date(value).getTime()/1000;}
   $("modeSelect")?.addEventListener("change",event=>control({mode:event.target.value}));
@@ -361,26 +447,52 @@
   document.querySelectorAll("[data-minutes]").forEach(button=>button.addEventListener("click",()=>{
     minutes=Number(button.dataset.minutes);customRange=null;
     if($("historyFrom")){$("historyFrom").value="";$("historyTo").value="";}
-    document.querySelectorAll("[data-minutes]").forEach(item=>item.classList.toggle("selected",item===button));
-    set("historyMessage","最近 "+minutes+" 分钟，自动更新");refreshHistory();
+    updateHistoryRangeControls();
+    historyFeedback("最近 "+minutes+" 分钟，自动更新");refreshHistory();
   }));
   $("chartMetric")?.addEventListener("change",drawChart);
-  $("historyMode")?.addEventListener("change",event=>{selectedHistoryMode=event.target.value;historyPoints=[];stats=null;drawChart();refreshHistory();});
-  $("applyHistory")?.addEventListener("click",()=>{
+  document.querySelectorAll("[data-history-metric]").forEach(button=>button.addEventListener("click",()=>{
+    $("chartMetric").value=button.dataset.historyMetric;
+    document.querySelectorAll("[data-history-metric]").forEach(item=>{item.classList.toggle("active",item===button);item.setAttribute("aria-pressed",String(item===button));});
+    drawChart();
+  }));
+  $("historyMode")?.addEventListener("change",event=>{selectedHistoryMode=event.target.value;historyFeedback("");refreshHistory();});
+  $("historyRangeForm")?.addEventListener("submit",event=>{
+    event.preventDefault();
     const from=localInputDate($("historyFrom").value),to=localInputDate($("historyTo").value);
-    if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||to-from>86400){set("historyMessage","请选择有效起止时间，单次最多 24 小时");return;}
-    customRange={from,to};document.querySelectorAll("[data-minutes]").forEach(button=>button.classList.remove("selected"));
-    set("historyMessage","按选定时段查询");refreshHistory();
+    if(!Number.isFinite(from)||!Number.isFinite(to)||to<=from||to-from>86400){
+      set("historyRangeError","请选择有效起止时间，单次最多 24 小时");
+      $("historyFrom").setAttribute("aria-invalid","true");$("historyTo").setAttribute("aria-invalid","true");return;
+    }
+    customRange={from,to};updateHistoryRangeControls();
+    historyFeedback("");refreshHistory();
   });
   $("resetHistory")?.addEventListener("click",resetHistoryView);
+  $("refreshHistory")?.addEventListener("click",()=>{historyFeedback("");refreshHistory();});
+  $("retryHistory")?.addEventListener("click",()=>{historyFeedback("");refreshHistory();});
+  if(page==="history"){
+    const picker=$("historyDate"),summary=picker.querySelector("summary");
+    picker.addEventListener("toggle",()=>{
+      if(!picker.open || $("historyFrom").value || !historyWindow)return;
+      const localDate=ts=>{const date=new Date(ts*1000);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);};
+      $("historyFrom").value=localDate(historyWindow.since);$("historyTo").value=localDate(historyWindow.until);
+    });
+    document.addEventListener("pointerdown",event=>{if(!picker.contains(event.target))picker.open=false;});
+    document.addEventListener("keydown",event=>{if(event.key==="Escape" && picker.open){picker.open=false;summary.focus();}});
+  }
   $("exportHistory")?.addEventListener("click",async()=>{
-    const button=$("exportHistory");button.disabled=true;
+    const button=$("exportHistory");historyExportBusy=true;button.disabled=true;
     try{
-      const response=await fetch("/api/history/export?"+historyParams(),{signal:AbortSignal.timeout(30000)});
+      const params=historyParams();
+      if(page==="history" && historyWindow && loadedHistoryQuery){
+        params.delete("minutes");params.set("from",historyWindow.since);params.set("to",historyWindow.until);
+        params.set("mode",new URLSearchParams(loadedHistoryQuery).get("mode"));
+      }
+      const response=await fetch("/api/history/export?"+params,{signal:AbortSignal.timeout(30000)});
       if(!response.ok)throw new Error("导出失败，请检查查询条件");
       const url=URL.createObjectURL(await response.blob()),anchor=document.createElement("a");anchor.href=url;anchor.download="factory-history.csv";anchor.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-      set("historyMessage","已导出当前查询范围的完整采样");
-    }catch(error){set("historyMessage",error.message);}finally{button.disabled=false;}
+      historyFeedback("已导出当前查询范围的完整采样");
+    }catch(error){historyFeedback(error.message,true);}finally{historyExportBusy=false;if(page==="history")setHistoryState(historyState);else button.disabled=false;}
   });
   function readAlertFilters(){
     const params=new URLSearchParams();

@@ -4,7 +4,7 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="control-token" content="{{ control_token }}"><meta name="color-scheme" content="light">
 <title>{{ page_title }} · 工厂安全生产监控平台</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
-{% if page == 'alerts' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/alerts.css') }}">{% elif page != 'overview' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}">{% endif %}
+{% if page in ['alerts', 'history'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace-shell.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/' ~ page ~ '.css') }}">{% elif page != 'overview' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace.css') }}">{% endif %}
 <script defer src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script><script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script></head>
 <body data-page="{{ page }}">
 <aside class="sidebar">
@@ -14,8 +14,8 @@
 <div class="sidebar-footer"><span class="dot"></span>工厂模拟区 · 01<small>物联网系统综合课程设计</small></div>
 </aside>
 <main>
-{% if page == 'alerts' %}
-<header class="alerts-topbar"><span class="site-location">工厂模拟区 <span class="location-divider">/</span> 01 号采集点</span><div class="service-status"><span id="connection" class="connection"><i class="dot gray"></i>正在连接</span>{% include 'partials/risk_indicator.html' %}<span id="modeLabel" class="mode-tag">正在读取模式</span><a href="/devices" aria-label="查看设备状态" title="设备状态">{{ icon('devices') }}</a></div></header>
+{% if page in ['alerts', 'history'] %}
+{% include 'partials/workspace_topbar.html' %}
 {% else %}
 <header class="top-header"><div class="title-block"><h1>工厂安全生产监控平台</h1><p>{{ page_title }}<span>环境感知 · 异常预警 · 联动通知</span></p></div>
 <div class="status-console"><div><span>ESP32</span><strong id="espStatus">待接入</strong></div><div><span>摄像头</span><strong class="muted">待接入</strong></div><div><span>数据库</span><strong id="databaseStatus">检测中</strong></div><div><span>MQTT</span><strong id="mqttStatus">检测中</strong></div><div><span>邮件</span><strong id="mailStatus">未启用</strong></div></div>

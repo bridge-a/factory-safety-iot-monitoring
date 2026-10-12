@@ -1,28 +1,32 @@
-<div class="page-intro">
-  <div><div class="eyebrow">数据中心 / 历史分析</div><h2>环境历史趋势</h2><p>每一次环境变化，都有迹可循。</p></div>
-  <button class="button primary" id="exportHistory">{{ icon('download') }}导出 CSV</button>
+<div class="history-heading">
+  <h1>历史趋势</h1>
+  <div class="history-actions"><button class="button" id="refreshHistory" type="button">{{ icon('refresh') }}刷新</button><button class="button primary" id="exportHistory" type="button" disabled>{{ icon('download') }}导出 CSV</button></div>
 </div>
-<div class="stat-grid analysis-stats">
-  <article class="stat-feature"><div class="stat-heading"><span>采样记录</span>{{ icon('database') }}</div><strong id="statTotal">--</strong><small id="statValid">等待查询</small></article>
-  <article><div class="stat-heading"><span>最小值</span>{{ icon('arrow-down') }}</div><div class="stat-value"><strong id="statMin">--</strong><small class="statUnit">--</small></div><small>所选指标 · 查询时段内</small></article>
-  <article><div class="stat-heading"><span>最大值</span>{{ icon('arrow-up') }}</div><div class="stat-value"><strong id="statMax">--</strong><small class="statUnit">--</small></div><small>所选指标 · 查询时段内</small></article>
-  <article><div class="stat-heading"><span>平均值</span>{{ icon('history') }}</div><div class="stat-value"><strong id="statAvg">--</strong><small class="statUnit">--</small></div><small>基于全部有效采样</small></article>
+<div class="history-query" aria-label="历史查询条件">
+  <label class="history-mode"><span>数据模式</span><select id="historyMode">{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
+  <div class="history-periods" role="group" aria-label="快捷时间范围">{% for value,label in [(10,'10 分钟'),(30,'30 分钟'),(60,'1 小时'),(360,'6 小时'),(1440,'24 小时')] %}<button type="button" data-minutes="{{ value }}" class="{{ 'selected' if value == 10 else '' }}" aria-pressed="{{ 'true' if value == 10 else 'false' }}">{{ label }}</button>{% endfor %}</div>
+  <details class="history-date" id="historyDate"><summary>{{ icon('calendar') }}<span id="historyDateLabel">自选时段</span><span class="date-chevron">⌄</span></summary><form id="historyRangeForm" class="history-date-popover" novalidate><div class="date-popover-heading"><strong>自选时间范围</strong><span>单次最多 24 小时</span></div><label>开始时间<input type="datetime-local" id="historyFrom" required></label><label>结束时间<input type="datetime-local" id="historyTo" required></label><p id="historyRangeError" class="history-range-error" role="status"></p><div class="date-popover-actions"><button class="button" type="button" id="resetHistory">最近 10 分钟</button><button class="button primary" type="submit" id="applyHistory">应用时段</button></div></form></details>
+  <span id="historyAutoState" class="history-auto">等待数据</span>
 </div>
-<div class="analysis-layout">
-  {{ trend(metrics,true) }}
-  <aside class="panel query-panel">
-    <div class="panel-heading"><h2>{{ icon('filter') }}查询范围</h2><span class="mini-label">最多 24 小时</span></div>
-    <div class="filter-panel history-filters">
-      <label>数据模式<select id="historyMode">{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label>
-      <label>开始时间<input type="datetime-local" id="historyFrom"></label>
-      <label>结束时间<input type="datetime-local" id="historyTo"></label>
-      <div class="query-actions"><button class="button primary" id="applyHistory">查询时段</button><button class="button" id="resetHistory">最近 10 分钟</button></div>
-      <span class="filter-message" id="historyMessage" role="status">选择日期，或使用图表上方的快捷范围。</span>
-    </div>
-    <div class="query-note">{{ icon('shield') }}<p>统计与导出保留全部采样<br><span>无效读数留空，不计入平均值。</span></p></div>
-  </aside>
+<p id="historyMessage" class="history-feedback" role="status"></p>
+<div class="history-metrics" role="group" aria-label="选择监测指标">
+  {% for key,metric in metrics.items() %}<button type="button" data-history-metric="{{ key }}" aria-pressed="{{ 'true' if key == 'smoke_raw' else 'false' }}" class="{{ 'active' if key == 'smoke_raw' else '' }}">{{ icon(key) }}{{ '烟雾' if key == 'smoke_raw' else metric.label }}<span>{{ metric.unit }}</span></button>{% endfor %}
 </div>
-<section class="panel history-table-panel">
-  <div class="panel-heading"><div><h2>{{ icon('database') }}采样明细</h2><p class="section-subtitle">核对曲线对应的环境读数</p></div><span id="sampleTableNote" class="subtle-badge">最近 20 个展示点</span></div>
-  <div class="table-wrap"><table class="sample-table"><thead><tr><th>采样时间</th><th>温度 <small>°C</small></th><th>湿度 <small>%RH</small></th><th>CO₂ <small>ppm</small></th><th>烟雾 <small>ADC</small></th><th>数据模式</th></tr></thead><tbody id="sampleRows"></tbody></table></div>
+<input type="hidden" id="chartMetric" value="smoke_raw">
+<section class="history-chart-panel" id="historyPanel" aria-label="所选指标历史趋势" aria-busy="true" data-state="loading">
+  <div class="history-chart-heading"><h2 id="historyMetricTitle">烟雾相对值</h2><div class="history-legend"><span><i class="legend-line"></i>采样值</span><span><i class="legend-line warning"></i>预警 <b id="historyWarning">--</b></span><span><i class="legend-line alarm"></i>报警 <b id="historyAlarm">--</b></span><small>演示阈值</small></div></div>
+  <div class="history-statistics">
+    <div><span>平均值</span><p><strong id="statAvg">--</strong><small class="statUnit">ADC</small></p></div>
+    <div><span>最高值</span><p><strong id="statMax">--</strong><small class="statUnit">ADC</small></p></div>
+    <div><span>最低值</span><p><strong id="statMin">--</strong><small class="statUnit">ADC</small></p></div>
+    <div class="history-sampling"><span>采样记录</span><p><strong id="statTotal">--</strong><small>条</small></p><small id="statValid">等待查询</small></div>
+  </div>
+  <div class="history-plot"><div id="historyChart" role="img" aria-label="所选指标随时间变化的折线图"></div><div id="historyChartState" class="history-chart-state" role="status"><span class="chart-state-symbol">{{ icon('history') }}</span><strong id="historyStateTitle">正在读取历史数据</strong><p id="historyStateDescription">查询结果将在这里显示</p><button class="button" id="retryHistory" type="button" hidden>重新查询</button></div></div>
+  <div class="history-chart-caption"><span id="historyRangeText">等待查询范围</span><span id="historyCount">正在读取采样…</span></div>
+</section>
+<div class="history-data-note"><span id="historyNote">统计与导出使用全部采样，缺失读数不计入平均值。</span><span id="historyUpdated"></span></div>
+<section class="history-samples" aria-labelledby="samplesTitle">
+  <div class="history-samples-heading"><h2 id="samplesTitle">采样明细</h2><span id="sampleTableNote">最近 20 个展示点</span></div>
+  <div class="history-table-wrap" tabindex="0" aria-label="采样明细表格，可横向滚动"><table class="sample-table"><thead><tr><th scope="col">采样时间</th><th scope="col" data-history-column="temp_c">温度 <small>°C</small></th><th scope="col" data-history-column="rh">湿度 <small>%RH</small></th><th scope="col" data-history-column="co2_ppm">CO₂ <small>ppm</small></th><th scope="col" data-history-column="smoke_raw">烟雾 <small>ADC</small></th><th scope="col">数据模式</th></tr></thead><tbody id="sampleRows"><tr><td colspan="6" class="empty">正在读取采样…</td></tr></tbody></table></div>
+  <p class="sample-table-note">明细展示曲线中最近的采样点；完整记录可通过 CSV 导出。缺失读数显示为 —。</p>
 </section>

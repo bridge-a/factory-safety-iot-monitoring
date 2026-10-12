@@ -18,4 +18,6 @@ Flask、paho-mqtt，以及可选开发依赖 pytest、Playwright 由包管理器
 
 辅助页面参考了 [shadcn-admin](https://github.com/satnaing/shadcn-admin)、[Tabler](https://github.com/tabler/tabler) 的列表组织与布局思路，以及 [Ant Design 数据展示规范](https://ant.design/docs/spec/data-display/)。未复制整套模板或第三方示例业务数据。
 
+历史趋势页另参考 [Grafana 时间范围控件](https://grafana.com/docs/grafana/latest/visualizations/dashboards/use-dashboards/) 与 [Ant Design 可视化页面规范](https://ant.design/docs/spec/visualization-page/)，用于确定查询操作、图表与明细的层次；实现继续使用现有 Flask、原生前端与 ECharts。
+
 本项目暂未指定项目级开源许可证；第三方组件的许可证不自动适用于本项目的其他代码。
