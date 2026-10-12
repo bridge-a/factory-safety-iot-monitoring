@@ -39,8 +39,16 @@
     if($("riskIndicatorText").textContent!==label)set("riskIndicatorText",label);
     indicator.title=description;
   }
+  function renderVisionIndicator(vision){
+    const indicator=$("visionIndicator");if(!indicator)return;
+    const pending=vision?.state==="pending",label=pending?"明火检测未启用":"明火检测状态未知";
+    indicator.dataset.state=pending?"pending":"unknown";
+    if($("visionIndicatorText").textContent!==label)set("visionIndicatorText",label);
+    indicator.title=pending?"尚未运行视觉检测，点击查看检测状态":"暂时无法确认视觉检测状态，点击查看";
+  }
   function markOffline(message="后台连接中断") {
     connection(message,"red");
+    renderVisionIndicator(null);
     if(page==="vision"){renderVisionStatus(null);renderVisionEvents(null);}
     setHistoryAuto("error", "连接中断");
     renderRiskIndicator("gray","状态未知",message+"，无法确认当前环境风险");
@@ -86,6 +94,7 @@
     });
     set("controlHint",data.mode==="live"?"真实采集模式已关闭模拟注入。":"模拟数据通过后台存储和告警规则处理，关闭网页后继续运行。");
     if(!data.sample || !data.runtime_online){markOffline(data.error || "等待后台采样");return;}
+    renderVisionIndicator(data.vision);
     if(page==="vision")renderVisionStatus(data.vision);
     const sample=data.sample;
     renderRiskIndicator(sample.level,sample.level==="gray"?"数据不完整":levels[sample.level],

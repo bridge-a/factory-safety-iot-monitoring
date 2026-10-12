@@ -25,11 +25,11 @@
 .camera-caption { display:flex; align-items:center; gap:7px; margin:12px 0 0; font-size:11px; color:#79867e; }
 .camera-caption>.icon { width:14px; height:14px; color:#8b9990; stroke-width:1.5; }
 .camera-caption-end { margin-left:auto; color:#89968e; }
-.vision-status { border:1px solid #e9e3d5; border-radius:6px; padding:15px 16px; background:#f8f6f0; }
+.vision-status { border:1px solid #f0d6b5; border-left:3px solid #d98224; border-radius:6px; padding:15px 16px; background:#fff4e5; }
 .vision-status>div { display:flex; align-items:center; gap:8px; }
-.vision-status i { width:6px; height:6px; border-radius:50%; background:#a38748; flex-shrink:0; }
-.vision-status strong { font-size:13px; font-weight:550; color:#776133; }
-.vision-status p { margin:7px 0 0; font-size:12px; line-height:1.8; color:#857960; }
+.vision-status i { width:6px; height:6px; border-radius:50%; background:#d98224; flex-shrink:0; }
+.vision-status strong { font-size:13px; font-weight:600; color:#985116; }
+.vision-status p { margin:7px 0 0; font-size:12px; line-height:1.8; color:#835d37; }
 .vision-status[data-state="loading"],.vision-status[data-state="unknown"] { border-color:#e2e7e3; background:#f2f5f3; }
 .vision-status[data-state="loading"] i,.vision-status[data-state="unknown"] i { background:#8c9992; }
 .vision-status[data-state="loading"] strong,.vision-status[data-state="unknown"] strong { color:#55685c; }

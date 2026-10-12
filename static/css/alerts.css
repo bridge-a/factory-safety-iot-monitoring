@@ -133,7 +133,7 @@ dialog::backdrop { background:#1a2d222b; }
   main { margin-left:0; padding:0; }
   .alerts-topbar { flex-wrap:wrap; justify-content:space-between; gap:10px; padding:12px 16px; min-height:50px; }
   .site-location { font-size:12px; }.site-location .location-divider { padding:0 6px; }
-  .service-status { width:100%; gap:10px; flex-wrap:wrap; }.service-status>a { margin-left:auto; width:23px; height:23px; }.connection,.mode-tag { font-size:11px; }.mode-tag { padding:3px 6px; }
+  .service-status { width:100%; gap:10px; flex-wrap:wrap; }.service-status>.device-status-link { width:23px; height:23px; }.connection,.mode-tag { font-size:11px; }.mode-tag { padding:3px 6px; }
   .risk-indicator { border-left:0; padding-left:0; font-size:11px; gap:4px; }.risk-indicator strong { font-size:11px; }
   .workspace-page { padding:23px 16px 30px; }
   .alerts-page-heading { margin-bottom:23px; gap:12px; }.alerts-title { gap:9px; }.alerts-title h1 { font-size:23px; }

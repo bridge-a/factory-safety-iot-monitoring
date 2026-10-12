@@ -22,7 +22,7 @@ main { margin-left:var(--sidebar); padding:0; min-height:100dvh; }
 .alerts-topbar { min-height:66px; padding:0 32px; border-bottom:1px solid #e7ece8; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:20px; }
 .site-location { font-size:13px; color:#5f6f65; white-space:nowrap; }
 .location-divider { color:#bbc5bd; padding:0 12px; }
-.service-status { display:flex; align-items:center; gap:18px; font-size:12px; }
+.service-status { display:flex; align-items:center; gap:18px; font-size:12px; flex-wrap:wrap; }
 .connection { font-size:12px; color:#64786b; gap:7px; }
 .connection .dot { width:6px; height:6px; }
 .risk-indicator { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; padding-left:16px; border-left:1px solid #e2e7e3; color:#69766f; }
@@ -35,9 +35,13 @@ main { margin-left:var(--sidebar); padding:0; min-height:100dvh; }
 .risk-indicator[data-level="red"] .risk-dot { animation:risk-pulse 2.4s ease-in-out infinite; }
 @keyframes risk-pulse { 0%,100% { box-shadow:0 0 0 0 #b139302b; } 50% { box-shadow:0 0 0 4px #b1393008; } }
 .mode-tag { font-size:12px; font-weight:400; color:#7d6b40; border:1px solid #e9e2d0; border-radius:5px; padding:4px 8px; background:#fcfaf4; white-space:nowrap; }
-.service-status>a { display:grid; place-items:center; color:#7b8b7e; width:28px; height:28px; border-radius:4px; }
-.service-status>a:hover { background:#f1f5f1; }
-.service-status>a>.icon { width:18px; height:18px; }
+.vision-status-link { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #e2e7e3; border-radius:4px; color:#63766a; background:#f3f5f3; font-size:11px; white-space:nowrap; }
+.vision-status-link>i { width:5px; height:5px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.vision-status-link[data-state="pending"] { color:#985116; border-color:#f0d6b5; background:#fff4e5; }
+.vision-status-link:hover { text-decoration:underline; text-underline-offset:3px; }
+.service-status>.device-status-link { display:grid; place-items:center; color:#7b8b7e; width:28px; height:28px; border-radius:4px; }
+.service-status>.device-status-link:hover { background:#f1f5f1; }
+.service-status>.device-status-link>.icon { width:18px; height:18px; }
 .workspace-page { max-width:1540px; margin:0 auto; padding:35px 36px 40px; }
 .button { min-height:36px; border:1px solid #dce4dc; background:#fff; color:#3d5846; padding:7px 13px; font-size:13px; font-weight:400; border-radius:5px; box-shadow:0 1px 2px #163e1f04; line-height:1.5; }
 .button>.icon { width:15px; height:15px; }
@@ -62,9 +66,9 @@ footer { display:none; }
   .nav-item>span { display:block; font-size:10px; }.nav-item>.icon { width:17px; height:17px; }.nav-item.active { box-shadow:inset 0 -2px #c7b985; }
   .sidebar-footer { display:none; }
   main { margin-left:0; padding:0; }
-  .alerts-topbar { flex-wrap:wrap; justify-content:space-between; gap:10px; padding:12px 16px; min-height:50px; }
+  .alerts-topbar { position:relative; flex-wrap:wrap; justify-content:space-between; gap:10px; padding:12px 16px; min-height:50px; }
   .site-location { font-size:12px; }.site-location .location-divider { padding:0 6px; }
-  .service-status { width:100%; gap:10px; flex-wrap:wrap; }.service-status>a { margin-left:auto; width:23px; height:23px; }.connection,.mode-tag { font-size:11px; }.mode-tag { padding:3px 6px; }
+  .service-status { width:100%; gap:10px; flex-wrap:wrap; }.service-status>.device-status-link { position:absolute; top:9px; right:16px; width:23px; height:23px; }.connection,.mode-tag { font-size:11px; }.mode-tag,.vision-status-link { padding:3px 6px; }
   .risk-indicator { border-left:0; padding-left:0; font-size:11px; gap:4px; }.risk-indicator strong { font-size:11px; }
   .workspace-page { padding:23px 16px 30px; }
   input,select { font-size:13px; min-height:38px; }
