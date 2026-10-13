@@ -1,0 +1,7 @@
+# Optional, independent broker for initial trusted-LAN testing only.
+# Use only if the existing broker cannot be reused and port 1884 is free.
+# Start explicitly: mosquitto -c deploy/raspberry-pi/mosquitto-factory.conf.example
+# Set BOTH runtime.env and firmware config.local.h to MQTT port 1884.
+listener 1884 0.0.0.0
+allow_anonymous true
+persistence false

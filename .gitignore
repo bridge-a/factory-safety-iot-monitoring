@@ -8,6 +8,12 @@ secrets/
 *.pem
 *.key
 *.p12
+/firmware/**/config.local.h
+/firmware/**/build/
+/deploy/raspberry-pi/runtime.env
+*.bin
+*.elf
+*.map
 
 # Runtime data, logs and test outputs
 /data/

@@ -14,6 +14,10 @@
 
 Flask、paho-mqtt，以及可选开发依赖 pytest、Playwright 由包管理器安装；本仓库不包含其源码分发或虚拟环境，各依赖遵循其自身许可证。
 
+## 固件依赖
+
+ESP32 Arduino core、Adafruit SHT31 / BusIO、BH1750、PubSubClient、Sensirion Core / I2C SCD4x 通过 Arduino 工具安装，不随仓库分发。版本与官方接口参考见 [固件说明](firmware/README.md)。新固件调用这些库的公开接口，没有复制其库源码或整份示例。
+
 ## 设计参考
 
 辅助页面参考了 [shadcn-admin](https://github.com/satnaing/shadcn-admin)、[Tabler](https://github.com/tabler/tabler) 的列表组织与布局思路，以及 [Ant Design 数据展示规范](https://ant.design/docs/spec/data-display/)。未复制整套模板或第三方示例业务数据。

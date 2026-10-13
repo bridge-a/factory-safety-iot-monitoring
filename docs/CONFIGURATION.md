@@ -1,6 +1,6 @@
 # 接入与配置说明
 
-本文对应 v0.1.0。接入入口已经实现，实际 MQTT 代理、硬件和邮件收件链路仍需联调。
+本文包含 v0.1.0 基线及 main 分支的接入准备。实际 MQTT 代理、硬件和邮件收件链路仍需联调。新固件与树莓派准备步骤见 [第一阶段接入说明](HARDWARE_INTEGRATION.md)。
 
 ## 后台配置
 
@@ -13,12 +13,14 @@
 | `FACTORY_WEB_PORT` | `5001` | HTTP 端口 |
 | `FACTORY_MQTT_HOST` | `localhost` | MQTT 代理地址 |
 | `FACTORY_MQTT_PORT` | `1883` | MQTT 端口 |
+| `FACTORY_MQTT_USERNAME` | 空 | 可选的 MQTT 用户名 |
+| `FACTORY_MQTT_PASSWORD` | 空 | 可选的 MQTT 密码，仅在本机设置 |
 | `FACTORY_ENV_TOPIC` | `factory/workshop1/env` | 接收采样 |
 | `FACTORY_ALERT_TOPIC` | `factory/workshop1/alert` | 告警发布主题 |
 | `FACTORY_DATA_DIR` | 项目下的 `data/` | 数据库目录 |
 | `FACTORY_MAIL_CONFIG` | 项目下的 `mail.ini` | 本机邮件配置路径 |
 
-后台每 2 秒采样，ESP32 超过 20 秒没有新数据则视为过期。只运行一个后台进程；网页关闭不影响后台线程，后台退出则停止监测。当前 MQTT 连接面向可信局域网，尚未提供账号认证和 TLS 配置。
+后台每 2 秒采样，ESP32 超过 20 秒没有新数据则视为过期。只运行一个后台进程；网页关闭不影响后台线程，后台退出则停止监测。当前 MQTT 连接面向可信局域网，支持可选用户名和密码，尚未提供 TLS 配置；凭据不返回到网页状态接口。
 
 ## MQTT 报文
 
@@ -44,6 +46,8 @@
 - 后台忽略 retained 报文，避免旧值被当成刚采集的数据。
 - `live` 缺失烟雾字段时显示待接入；`hybrid` 使用明确标注的模拟烟雾。
 - 旧文物固件的 `museum/...` 主题不会被此项目接收，需要独立准备新固件。
+
+本阶段新固件位于 `firmware/factory_sensors/`。MQ-2 尚未接入，固件实际发送 `smoke_raw=null, smoke_valid=false`，由混合模式补入模拟烟雾；上面的完整报文只是未来接入字段示例。固件与原草图独立，尚未烧录。
 
 当前只管理一个区域、一个采集节点。多个节点需要增加设备白名单和独立区域状态。
 

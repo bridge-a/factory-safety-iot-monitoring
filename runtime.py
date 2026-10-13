@@ -161,6 +161,8 @@ class MonitorRuntime:
             self.mqtt_detail = "MQTT 依赖未安装；模拟功能可用"
             return
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+        if settings.MQTT_USERNAME:
+            self.client.username_pw_set(settings.MQTT_USERNAME, settings.MQTT_PASSWORD)
 
         def connected(client, userdata, flags, reason_code, properties):
             with self.lock:

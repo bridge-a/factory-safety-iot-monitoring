@@ -13,4 +13,9 @@
 *.txt text eol=lf
 *.ini.example text eol=lf
 *.ps1 text eol=crlf
+*.sh text eol=lf
+*.ino text eol=lf
+*.h text eol=lf
+*.env.example text eol=lf
+*.conf.example text eol=lf
 *.png binary
