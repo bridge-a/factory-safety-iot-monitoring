@@ -17,13 +17,13 @@
         {% for key,label in scenarios.items() %}
         <button type="button" class="sim-scenario" data-scenario="{{ key }}" aria-pressed="false">
           <span class="sim-scenario-symbol">{{ icon({'normal':'check','rising':'history','warning':'alerts','alarm':'fire','recovery':'refresh','disconnected':'unplug'}[key]) }}</span>
-          <span class="sim-scenario-name">{{ {'normal':'正常采样','rising':'逐渐升高','warning':'黄色预警','alarm':'红色报警','recovery':'恢复正常','disconnected':'烟雾断线'}[key] }}</span>
-          <span class="sim-scenario-description">{{ {'normal':'保持正常读数，检查采样与来源','rising':'烟雾逐步升高，观察预警与报警','warning':'触发预警，检查弹窗与事件','alarm':'触发报警，检查告警联动','recovery':'异常后持续正常 15 秒，确认恢复','disconnected':'停止烟雾读数，检查数据缺失状态'}[key] }}</span>
-          <span class="sim-scenario-action" aria-hidden="true"><span>应用</span><span>{{ icon('check') }}当前</span></span>
+          <span class="sim-scenario-name">{{ {'normal':'正常采样','rising':'逐渐升高','warning':'黄色预警','alarm':'红色报警','recovery':'恢复测试','disconnected':'烟雾断线'}[key] }}</span>
+          <span class="sim-scenario-description">{{ {'normal':'保持正常读数，检查采样与来源','rising':'烟雾逐步升高，观察预警与报警','warning':'触发预警，检查弹窗与事件','alarm':'触发报警，检查告警联动','recovery':'先触发异常，再持续正常 15 秒，核对恢复记录','disconnected':'停止烟雾读数，检查数据缺失状态'}[key] }}</span>
+          <span class="sim-scenario-action" aria-hidden="true"><span class="sim-action-apply">应用</span><span class="sim-action-current">{{ icon('check') }}当前</span><span class="sim-action-pending">应用中…</span></span>
         </button>
         {% endfor %}
       </div>
-      <div class="sim-control-note"><p id="controlHint">点击场景立即应用，后台持续采样。</p><p id="controlMessage" role="status" aria-live="polite"></p></div>
+      <div class="sim-control-note"><p id="controlHint">点击场景立即应用，后台持续采样。</p><p>模拟预警与报警会按规则写入告警记录，持续异常自动去重。</p><p id="controlMessage" role="status" aria-live="polite"></p></div>
     </section>
 
     <aside class="sim-monitor" aria-label="实时读数与联动状态">
@@ -43,5 +43,5 @@
     </aside>
   </div>
 
-  <details class="sim-guide"><summary>联调检查要点<span>去重、恢复与断线判定</span>{{ icon('arrow-down') }}</summary><ul><li>先确认正常读数，再触发预警或报警；持续同一异常应合并记录，升级时新增事件。</li><li>异常后切换恢复场景，保持正常采样至少 15 秒，再核对告警页的恢复记录。</li><li>烟雾断线应显示无有效数据，不能作为恢复依据；混合模式下其余传感器需实际上报。</li><li>模拟读数仅用于功能演示与联调；实体声光动作和邮件接收需要分别验证。</li></ul></details>
+  <details class="sim-guide"><summary>联调检查要点<span>去重、恢复与断线判定</span><span class="sim-guide-toggle" aria-hidden="true"><span class="sim-guide-open">展开</span><span class="sim-guide-close">收起</span></span>{{ icon('arrow-down') }}</summary><ul><li>先确认正常读数，再触发预警或报警；持续同一异常应合并记录，升级时新增事件。</li><li>先触发异常，再应用“恢复测试”，保持正常采样至少 15 秒，核对告警页的恢复记录。</li><li>烟雾断线应显示无有效数据，不能作为恢复依据，当前也不会单独生成断线告警；混合模式下其余传感器需实际上报。</li><li>模拟读数仅用于功能演示与联调；实体声光动作和邮件接收需要分别验证。</li></ul></details>
 </div>

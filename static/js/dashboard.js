@@ -8,7 +8,7 @@
   const modes = {hybrid:"真实环境＋模拟烟雾",demo:"全模拟演示",live:"全部真实采集"};
   const sources = {simulation:"模拟数据",mqtt:"实际采集",missing:"待接入"};
   const types = {environment:"环境异常",smoke:"烟雾异常",vision:"明火异常"};
-  const scenarios = {normal:"正常",rising:"逐渐升高",warning:"预警",alarm:"报警",recovery:"恢复",disconnected:"烟雾断线"};
+  const scenarios = {normal:"正常采样",rising:"逐渐升高",warning:"黄色预警",alarm:"红色报警",recovery:"恢复测试",disconnected:"烟雾断线"};
   const token = document.querySelector('meta[name="control-token"]').content;
   let status = null, thresholds = {}, currentMode = null, eventCursor = null, eventStream = null;
   let minutes = 10, selectedHistoryMode = null, customRange = null, historyWindow = null, historyPoints = [], stats = null;
@@ -522,16 +522,20 @@
   }
   async function control(body){
     if(controlBusy)return;controlBusy=true;controlVersion++;updateSimulationControls();
+    const activeRow=body.scenario?document.querySelector('[data-scenario="'+body.scenario+'"]'):null;
+    const clearApplying=()=>{if(activeRow){delete activeRow.dataset.applying;activeRow.removeAttribute("aria-busy");}};
+    if(activeRow){activeRow.dataset.applying="true";activeRow.setAttribute("aria-busy","true");}
     $("simulationWorkspace").setAttribute("aria-busy","true");$("refreshSimulation").disabled=true;
-    set("controlMessage","正在应用…");$("controlMessage").dataset.state="pending";
+    set("controlMessage",body.scenario?"正在应用："+scenarios[body.scenario]+"…":"正在切换运行模式…");$("controlMessage").dataset.state="pending";
     try{
       const data=await api("/api/simulation",{method:"POST",headers:{"Content-Type":"application/json","X-Control-Token":token},body:JSON.stringify(body)});
-      renderStatus(data);set("controlMessage","已应用，后台持续采样");$("controlMessage").dataset.state="success";await refreshNotifications();
+      renderStatus(data);clearApplying();set("controlMessage",body.scenario?"已切换到："+scenarios[data.scenario]:"运行模式已切换为："+modes[data.mode]);$("controlMessage").dataset.state="success";await refreshNotifications();
     }catch(error){
+      clearApplying();
       set("controlMessage",error.message);$("controlMessage").dataset.state="error";
       try{renderStatus(await api("/api/status"));}catch(_){markOffline();}
     }
-    finally{controlBusy=false;controlVersion++;$("simulationWorkspace").setAttribute("aria-busy","false");$("refreshSimulation").disabled=false;updateSimulationControls();}
+    finally{clearApplying();controlBusy=false;controlVersion++;$("simulationWorkspace").setAttribute("aria-busy","false");$("refreshSimulation").disabled=false;updateSimulationControls();}
   }
   async function poll(){
     const version=controlVersion;

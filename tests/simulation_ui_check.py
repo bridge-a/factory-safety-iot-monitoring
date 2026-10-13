@@ -78,7 +78,7 @@ def main():
                 page.keyboard.press('Enter')
                 expect(button).to_have_attribute('aria-pressed','true')
                 expect(page.locator('#simReadingPanel')).to_have_attribute('data-level',level)
-                expect(page.locator('#controlMessage')).to_have_text('已应用，后台持续采样')
+                expect(page.locator('#controlMessage')).to_have_text('已切换到：'+button.locator('.sim-scenario-name').inner_text())
                 expect(page.locator('#controlMessage')).to_have_attribute('data-state','success')
                 assert posts[-1] == {'scenario':scenario}
                 if scenario=='disconnected':
@@ -104,7 +104,15 @@ def main():
             reject_control = False
             page.locator('#modeSelect').select_option('demo')
             expect(page.locator('[data-scenario="alarm"]')).to_be_enabled()
-            checks.append('hybrid and live source descriptions; live mode disables injection; rejected changes retain confirmed mode')
+            reject_control = True
+            page.locator('[data-scenario="warning"]').click()
+            expect(page.locator('#controlMessage')).to_have_attribute('data-state','error')
+            expect(page.locator('[data-applying="true"]')).to_have_count(0)
+            expect(page.locator('[data-scenario="warning"]')).to_have_attribute('aria-pressed','false')
+            expect(page.locator('[data-scenario="warning"] .sim-action-apply')).to_be_visible()
+            expect(page.locator('[data-scenario="normal"] .sim-action-current')).to_be_visible()
+            reject_control = False
+            checks.append('hybrid and live source descriptions; live mode disables injection; rejected mode or scenario retains confirmed state and clears pending feedback')
 
             page.unroute('**/api/status')
             page.route('**/api/status', lambda route: route.fulfill(status=503,json={'error':'offline'}))
@@ -154,15 +162,22 @@ def main():
             page.route('**/api/simulation', lambda route:pending_controls.append(route))
             page.locator('[data-scenario="alarm"]').click()
             expect(page.locator('#controlMessage')).to_have_attribute('data-state','pending')
+            expect(page.locator('[data-scenario="alarm"] .sim-action-pending')).to_be_visible()
+            expect(page.locator('[data-scenario="alarm"]')).to_have_attribute('aria-busy','true')
+            expect(page.locator('[data-scenario="alarm"]')).to_have_attribute('aria-pressed','false')
+            expect(page.locator('[data-scenario="normal"] .sim-action-current')).to_be_visible()
             expect(page.locator('#modeSelect')).to_be_disabled()
             expect(page.locator('[data-scenario="normal"]')).to_be_disabled()
             deadline = time.monotonic()+4
             while not pending_controls and time.monotonic()<deadline:
                 page.wait_for_timeout(50)
             assert len(pending_controls)==1
+            page.screenshot(path=str(out/'applying.png'))
             apply_control(pending_controls[0])
             expect(page.locator('#simReadingPanel')).to_have_attribute('data-level','red')
             expect(page.locator('#controlMessage')).to_have_attribute('data-state','success')
+            expect(page.locator('[data-scenario="alarm"] .sim-action-pending')).to_be_hidden()
+            expect(page.locator('[data-scenario="alarm"] .sim-action-current')).to_be_visible()
             for route in pending_status:
                 route.fulfill(json=old)
             page.wait_for_timeout(100)
@@ -173,8 +188,12 @@ def main():
             page.screenshot(path=str(out/'alarm.png'))
             checks.append('pending commands lock controls; a delayed status response cannot undo the applied scenario')
 
+            expect(page.locator('.sim-guide-open')).to_be_visible()
+            expect(page.locator('.sim-guide-close')).to_be_hidden()
             page.locator('.sim-guide summary').click()
             expect(page.locator('.sim-guide')).to_have_attribute('open','')
+            expect(page.locator('.sim-guide-open')).to_be_hidden()
+            expect(page.locator('.sim-guide-close')).to_be_visible()
             expect(page.locator('.sim-guide')).to_contain_text('15 秒')
             page.locator('.sim-result-links').get_by_role('link',name='查看告警记录').click()
             expect(page).to_have_url(url+'/alerts')
@@ -182,6 +201,7 @@ def main():
             page.locator('.sim-result-links').get_by_role('link',name='历史趋势').click()
             expect(page).to_have_url(url+'/history')
             checks.append('validation guidance expands and both result links reach their existing pages')
+            page.unroute_all(behavior='wait')
             assert not errors, errors
             browser.close()
     finally:

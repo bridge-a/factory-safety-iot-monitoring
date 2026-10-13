@@ -14,17 +14,23 @@
 .sim-section-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; min-height:23px; }
 .sim-section-heading>span { color:#69796e; font-size:12px; white-space:nowrap; }
 .sim-scenario-list { border:1px solid #dfe6e0; background:#fff; border-radius:6px; overflow:hidden; }
-.sim-scenario { width:100%; display:grid; grid-template-columns:20px 85px minmax(0,1fr) 42px; gap:13px; align-items:center; min-height:62px; padding:15px 17px; background:transparent; border:0; border-bottom:1px solid #e8ede9; border-radius:0; color:#405b4b; text-align:left; }
+.sim-scenario { width:100%; display:grid; grid-template-columns:20px 85px minmax(0,1fr) 76px; gap:13px; align-items:center; min-height:62px; padding:15px 17px; background:transparent; border:0; border-bottom:1px solid #e8ede9; border-radius:0; color:#405b4b; text-align:left; }
 .sim-scenario:last-child { border-bottom:0; }.sim-scenario:hover:enabled { background:#f6f9f6; }
 .sim-scenario.selected { background:#edf4ef; box-shadow:inset 3px 0 #46775b; }.sim-scenario.selected:hover:enabled { background:#e7f0e9; }
 .sim-scenario:focus-visible { outline:2px solid #46775b; outline-offset:-3px; }
 .sim-scenario-symbol { display:flex; color:#7a9181; }.sim-scenario-symbol>.icon { width:18px; height:18px; stroke-width:1.5; }
 .sim-scenario[data-scenario="warning"] .sim-scenario-symbol { color:#a77727; }.sim-scenario[data-scenario="alarm"] .sim-scenario-symbol { color:#b6483e; }
-.sim-scenario-name { font-size:13px; font-weight:550; color:#395443; }.sim-scenario-description { font-size:12px; line-height:1.8; color:#65776b; }
-.sim-scenario-action { font-size:12px; color:#6f8074; text-align:right; }.sim-scenario-action>span:last-child { display:none; align-items:center; justify-content:flex-end; gap:3px; color:#35664a; }.sim-scenario-action .icon { width:13px; height:13px; }
-.sim-scenario.selected .sim-scenario-action>span:first-child { display:none; }.sim-scenario.selected .sim-scenario-action>span:last-child { display:flex; }
-.sim-scenario:disabled { opacity:.55; }.sim-scenario:disabled .sim-scenario-action { visibility:hidden; }
-.sim-control-note { margin-top:13px; }.sim-control-note p { margin:0; color:#65766b; font-size:12px; line-height:1.8; }
+.sim-scenario-name { font-size:13px; font-weight:550; color:#395443; }.sim-scenario-description { font-size:12px; line-height:1.8; color:#536b5c; }
+.sim-scenario-action { display:flex; justify-content:flex-end; font-size:12px; white-space:nowrap; }
+.sim-scenario-action>span { display:none; align-items:center; justify-content:center; gap:4px; min-height:30px; }
+.sim-scenario-action .sim-action-apply { display:inline-flex; padding:4px 11px; border:1px solid #bdcfc2; border-radius:4px; color:#3c664c; background:#fff; }
+.sim-scenario:hover:enabled .sim-action-apply { border-color:#7c9e86; background:#eef5ef; }
+.sim-scenario-action .sim-action-current { color:#35664a; }.sim-scenario-action .icon { width:13px; height:13px; }
+.sim-scenario.selected .sim-action-apply { display:none; }.sim-scenario.selected .sim-action-current { display:inline-flex; }
+.sim-scenario:disabled { opacity:.55; }.sim-scenario:disabled.selected,.sim-scenario:disabled[data-applying="true"] { opacity:1; }
+.sim-scenario[data-applying="true"] .sim-action-apply,.sim-scenario[data-applying="true"] .sim-action-current { display:none; }
+.sim-scenario[data-applying="true"] .sim-action-pending { display:inline-flex; padding:4px 7px; border:1px solid #ddc99d; border-radius:4px; background:#fff8eb; color:#89611f; }
+.sim-control-note { margin-top:13px; }.sim-control-note p { margin:0; color:#536b5c; font-size:12px; line-height:1.8; }
 #controlMessage { min-height:22px; margin-top:3px; color:#367153; }#controlMessage[data-state="pending"] { color:#8b6725; }#controlMessage[data-state="error"] { color:#a13e35; }
 .sim-monitor { border-left:1px solid #e0e7e1; padding-left:28px; }
 .sim-reading-panel { --reading-color:#3b7354; }.sim-reading-panel[data-level="red"] { --reading-color:#b44339; }.sim-reading-panel[data-level="yellow"] { --reading-color:#9b6d20; }.sim-reading-panel[data-level="gray"] { --reading-color:#78857d; }
@@ -35,13 +41,14 @@
 .sim-thresholds { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:18px 0 12px; }.sim-thresholds dt { display:flex; align-items:center; gap:6px; font-size:12px; color:#65766a; }.sim-thresholds .dot { width:5px; height:5px; }.sim-thresholds dd { margin:6px 0 0; font-size:18px; font-weight:450; color:#425f4d; font-variant-numeric:tabular-nums; }
 .sim-reading-note { font-size:12px; line-height:1.8; color:#65766b; margin:0; }
 .sim-linkage { margin-top:18px; border-top:1px solid #e0e7e1; padding-top:16px; }
-.sim-linkage dl { margin:12px 0; display:grid; gap:12px; }.sim-linkage dl>div { display:flex; justify-content:space-between; gap:16px; font-size:12px; }.sim-linkage dt { color:#64756a; }.sim-linkage dd { margin:0; color:#69786f; }.sim-linkage dd[data-state="ready"] { color:#317153; }.sim-linkage dd[data-state="error"] { color:#aa4037; }
-.sim-linkage>p { margin:0; font-size:12px; line-height:1.8; color:#65766b; }
+.sim-linkage dl { margin:12px 0; display:grid; gap:12px; }.sim-linkage dl>div { display:flex; justify-content:space-between; gap:16px; font-size:12px; }.sim-linkage dt { color:#536b5c; }.sim-linkage dd { margin:0; color:#5b7063; }.sim-linkage dd[data-state="ready"] { color:#317153; }.sim-linkage dd[data-state="error"] { color:#aa4037; }
+.sim-linkage>p { margin:0; font-size:12px; line-height:1.8; color:#536b5c; }
 .sim-result-links { display:flex; justify-content:space-between; gap:16px; margin-top:17px; }.sim-result-links a { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#3e7053; }.sim-result-links .icon { width:13px; height:13px; }.sim-result-links a:hover { text-decoration:underline; text-underline-offset:3px; }
 .sim-guide { border-top:1px solid #dfe6e1; margin-top:25px; padding-top:16px; }.sim-guide summary { display:flex; align-items:center; gap:13px; font-size:12px; color:#526b59; list-style:none; cursor:pointer; width:fit-content; }.sim-guide summary::-webkit-details-marker { display:none; }.sim-guide summary>span { color:#6f7e73; }.sim-guide summary>.icon { width:13px; height:13px; color:#74867a; transition:transform .15s; }.sim-guide[open] summary>.icon { transform:rotate(180deg); }.sim-guide summary:focus-visible { outline:2px solid #46775b; outline-offset:4px; }
 .sim-guide ul { margin:14px 0 0; padding-left:18px; font-size:12px; line-height:1.9; color:#65766b; }.sim-guide li+li { margin-top:6px; }
-@media(min-width:1750px) { .sim-layout { grid-template-columns:minmax(0,1fr) 350px; gap:42px; }.sim-monitor { padding-left:34px; }.sim-mode-field { width:350px; }.sim-scenario { min-height:72px; grid-template-columns:22px 105px minmax(0,1fr) 48px; padding:17px 22px; }.sim-scenario-name { font-size:14px; }.sim-scenario-description { font-size:13px; } }
-@media(max-width:1200px) { .sim-layout { grid-template-columns:minmax(0,1fr) 280px; gap:24px; }.sim-monitor { padding-left:23px; }.sim-scenario { grid-template-columns:18px minmax(0,1fr) 40px; gap:3px 10px; padding:12px 15px; }.sim-scenario-description { grid-column:2; }.sim-scenario-symbol { grid-column:1; grid-row:1/3; }.sim-scenario-action { grid-column:3; grid-row:1/3; }.sim-mode-field { width:310px; } }
+.sim-guide summary>.sim-guide-toggle { color:#376b4d; font-weight:550; }.sim-guide-close { display:none; }.sim-guide[open] .sim-guide-open { display:none; }.sim-guide[open] .sim-guide-close { display:inline; }
+@media(min-width:1750px) { .sim-layout { grid-template-columns:minmax(0,1fr) 350px; gap:42px; }.sim-monitor { padding-left:34px; }.sim-mode-field { width:350px; }.sim-scenario { min-height:72px; grid-template-columns:22px 105px minmax(0,1fr) 76px; padding:17px 22px; }.sim-scenario-name { font-size:14px; }.sim-scenario-description { font-size:13px; } }
+@media(max-width:1200px) { .sim-layout { grid-template-columns:minmax(0,1fr) 280px; gap:24px; }.sim-monitor { padding-left:23px; }.sim-scenario { grid-template-columns:18px minmax(0,1fr) 76px; gap:3px 10px; padding:12px 15px; }.sim-scenario-description { grid-column:2; }.sim-scenario-symbol { grid-column:1; grid-row:1/3; }.sim-scenario-action { grid-column:3; grid-row:1/3; }.sim-mode-field { width:310px; } }
 @media(max-width:950px) { .sim-layout { grid-template-columns:minmax(0,1fr); gap:28px; }.sim-monitor { display:grid; grid-template-columns:1fr 1fr; gap:28px; padding:24px 0 0; border-left:0; border-top:1px solid #dfe6e1; }.sim-linkage { margin:0; padding:0 0 0 28px; border-top:0; border-left:1px solid #e0e7e1; }.sim-mode { gap:20px; }.sim-mode-field { width:280px; } }
 @media(max-width:720px) { .sim-heading { margin-bottom:25px; gap:14px; }.sim-heading h1 { font-size:23px; }.sim-updated { display:none; }.sim-mode { flex-direction:column; gap:16px; margin-bottom:24px; padding-bottom:22px; }.sim-mode-field { width:100%; }.sim-mode-field p { text-align:left; }.sim-scenario { padding:14px 13px; min-height:74px; }.sim-section-heading { margin-bottom:13px; }.sim-monitor { grid-template-columns:minmax(0,1fr); gap:23px; }.sim-linkage { border-left:0; border-top:1px solid #e0e7e1; padding:21px 0 0; }.sim-reading-value strong { font-size:48px; }.sim-result-links { justify-content:flex-start; gap:24px; }.sim-guide summary { gap:9px; flex-wrap:wrap; }.sim-guide summary>span { font-size:12px; } }
 @media(prefers-reduced-motion:reduce) { .sim-scale-track>i,.sim-guide summary>.icon { transition:none; } }

@@ -171,7 +171,7 @@ def main():
             page.goto(url+"/simulation")
             with page.expect_response("**/api/simulation"):
                 page.locator('[data-scenario="normal"]').click()
-            expect(page.locator("#controlMessage")).to_have_text("已应用，后台持续采样")
+            expect(page.locator("#controlMessage")).to_have_text("已切换到：正常采样")
             expect(page.locator("#simWarning")).to_have_text("--")
             for route in delayed_status:
                 route.continue_()
