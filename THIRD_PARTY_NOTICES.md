@@ -25,3 +25,5 @@ Flask、paho-mqtt，以及可选开发依赖 pytest、Playwright 由包管理器
 设备管理页另参考 [shadcn-admin 用户列表](https://shadcn-admin.netlify.app/users) 的紧凑列表和弱化的辅助信息，以及 [ThingsBoard 设备文档](https://thingsboard.io/docs/user-guide/devices/) 对设备连接状态、最新遥测与详情的组织方式。没有引入这些平台、复制代码或使用其示例业务数据。
 
 本项目暂未指定项目级开源许可证；第三方组件的许可证不自动适用于本项目的其他代码。
+
+模拟与联调页参考 [shadcn-admin 设置页](https://shadcn-admin.netlify.app/settings) 的表单层次和分隔方式，以及 [IBM Carbon Structured list](https://www.carbondesignsystem.com/building-blocks/core/components/structured-list/guidelines) 的行式选项与状态区分。仅借鉴信息组织，未复制源码、截图或素材；交互使用本项目的原生按钮与既有接口。

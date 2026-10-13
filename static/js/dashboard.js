@@ -14,7 +14,7 @@
   let minutes = 10, selectedHistoryMode = null, customRange = null, historyWindow = null, historyPoints = [], stats = null;
   let chart = null, historyVersion = 0, lastHistoryAt = 0, lastPageEventsAt = 0;
   let loadedHistoryQuery = null, historyState = "loading", historyExportBusy = false;
-  let controlBusy = false, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
+  let controlBusy = false, controlVersion = 0, notificationsOnline = true, eventPage = 1, eventPages = 1, queryVersion = 0;
   let appliedAlertParams = new URLSearchParams();
   let deviceQueueVersion = 0, deviceCopyBusy = false, deviceCopyTimer = null;
   try {const saved=JSON.parse(sessionStorage.getItem("factory-event-cursor")); if(saved && Number.isInteger(saved.cursor)){eventCursor=saved.cursor;eventStream=saved.stream;}} catch (_) {}
@@ -62,6 +62,16 @@
     set("simSamplingStatus","连接中断");
     if($("simIndicator"))$("simIndicator").style.width="0%";
     if($("simReadingPanel"))$("simReadingPanel").dataset.level="gray";
+    if(page==="simulation"){
+      $("simulationWorkspace").dataset.state="error";$("simulationWorkspace").setAttribute("aria-busy","false");
+      set("simFeedback",message+"，恢复连接后可继续联调。");set("simUpdated","连接中断");$("simUpdated").dataset.state="error";
+      set("scenarioLabel","状态未知");set("simModeHint","暂时无法确认运行模式");$("modeSelect").value="";
+      set("simMailNote","连接恢复后重新确认通知状态");set("simSoundState","状态未知");
+      set("controlHint","后台连接中断，测试场景暂不可用。");
+      ["popupState","mailLinkState"].forEach(id=>$(id).dataset.state="error");
+      document.querySelectorAll("[data-scenario]").forEach(button=>{button.classList.remove("selected");button.setAttribute("aria-pressed","false");});
+      updateSimulationControls();
+    }
     document.querySelectorAll("[data-metric]").forEach(card=>{
       card.dataset.level="gray";card.querySelector('[data-role="value"]').textContent="--";
       card.querySelector('[data-role="state"]').textContent="状态未知";
@@ -100,7 +110,7 @@
       button.setAttribute("aria-pressed",String(data.mode!=="live"&&button.dataset.scenario===data.scenario));
       button.disabled=data.mode==="live"||controlBusy;
     });
-    set("controlHint",data.mode==="live"?"真实采集模式已关闭模拟注入。":"模拟数据通过后台存储和告警规则处理，关闭网页后继续运行。");
+    set("controlHint",data.mode==="live"?"真实采集模式下，测试场景不可用；切换模式后可继续模拟。":"点击场景立即应用；关闭网页后，后台仍持续采样。");
     if(!data.sample || !data.runtime_online){markOffline(data.error || "等待后台采样");return;}
     renderVisionIndicator(data.vision);
     if(page==="vision")renderVisionStatus(data.vision);
@@ -137,12 +147,30 @@
     set("simValue",numberText(sample.smoke_raw,"smoke_raw"));
     set("simState",sample.smoke_raw==null?"烟雾数据无效":(sources[sample.sources.smoke_raw]||"")+" · "+levels[sample.channels.smoke_raw.level]);
     if(page==="simulation"){
+      renderSimulationStatus(data);
       set("simSamplingStatus",sample.smoke_raw==null?"数据待接入":"后台采样");
       set("simWarning",thresholds.smoke_raw?.yellow ?? "--");set("simAlarm",thresholds.smoke_raw?.red ?? "--");
       $("simReadingPanel").dataset.level=sample.channels.smoke_raw.level;
       $("simIndicator").style.width=(sample.smoke_raw==null?0:Math.max(0,Math.min(100,sample.smoke_raw/4095*100)))+"%";
     }
     if(page==="devices")renderDevices(data);
+  }
+  function updateSimulationControls(){
+    if(page!=="simulation")return;
+    const unavailable=controlBusy||$("simulationWorkspace").dataset.state==="error";
+    $("modeSelect").disabled=unavailable;
+    document.querySelectorAll("[data-scenario]").forEach(button=>button.disabled=unavailable||currentMode==="live");
+  }
+  function renderSimulationStatus(data){
+    $("simulationWorkspace").dataset.state="ready";$("simulationWorkspace").setAttribute("aria-busy","false");
+    set("simFeedback","");set("simUpdated","自动更新 · "+timeText(data.sample.ts));$("simUpdated").dataset.state="ready";
+    set("scenarioLabel",data.mode==="live"?"真实采集中":"当前 · "+(scenarios[data.scenario]||"未知"));
+    set("simModeHint",{demo:"全部传感器使用模拟读数",hybrid:"烟雾模拟，其他指标由设备上报",live:"仅显示有效的实际采集读数"}[data.mode]||"数据来源未知");
+    $("popupState").dataset.state=notificationsOnline?"ready":"error";
+    $("mailLinkState").dataset.state=data.mail.config_error?"error":data.mail.enabled?"ready":"unknown";
+    set("simMailNote",data.mail.config_error?"邮件配置有误，请在主机上检查。":!data.mail.enabled?"邮件未启用；网页弹窗可独立验证。":data.mode!=="live"&&!data.mail.allow_demo?"当前不发送模拟事件邮件。":"邮件发送结果请在告警详情中查看。");
+    set("simSoundState",data.sound_light?.state==="pending"?"待联调":"状态未知");
+    updateSimulationControls();
   }
   function renderVisionStatus(vision) {
     const pending=vision?.state==="pending";
@@ -427,6 +455,9 @@
       }
       notificationsOnline=true;
     }catch(_){notificationsOnline=false;connection("告警读取异常","red");set("popupState","读取异常");}
+    if(page==="simulation" && $("simulationWorkspace").dataset.state==="ready"){
+      set("popupState",notificationsOnline?"监听中":"读取异常");$("popupState").dataset.state=notificationsOnline?"ready":"error";
+    }
   }
   function renderRecent(data){
     if(!$("recentList"))return;
@@ -490,22 +521,27 @@
     catch(_){if(version===deviceQueueVersion)renderDeviceQueue(null);}
   }
   async function control(body){
-    if(controlBusy)return;controlBusy=true;$("modeSelect").disabled=true;
-    document.querySelectorAll("[data-scenario]").forEach(button=>button.disabled=true);set("controlMessage","正在应用…");
+    if(controlBusy)return;controlBusy=true;controlVersion++;updateSimulationControls();
+    $("simulationWorkspace").setAttribute("aria-busy","true");$("refreshSimulation").disabled=true;
+    set("controlMessage","正在应用…");$("controlMessage").dataset.state="pending";
     try{
       const data=await api("/api/simulation",{method:"POST",headers:{"Content-Type":"application/json","X-Control-Token":token},body:JSON.stringify(body)});
-      renderStatus(data);set("controlMessage","已应用，后台持续采样");await refreshNotifications();
-    }catch(error){set("controlMessage",error.message);if(status)renderStatus(status);}
-    finally{controlBusy=false;$("modeSelect").disabled=false;document.querySelectorAll("[data-scenario]").forEach(button=>button.disabled=currentMode==="live");}
+      renderStatus(data);set("controlMessage","已应用，后台持续采样");$("controlMessage").dataset.state="success";await refreshNotifications();
+    }catch(error){
+      set("controlMessage",error.message);$("controlMessage").dataset.state="error";
+      try{renderStatus(await api("/api/status"));}catch(_){markOffline();}
+    }
+    finally{controlBusy=false;controlVersion++;$("simulationWorkspace").setAttribute("aria-busy","false");$("refreshSimulation").disabled=false;updateSimulationControls();}
   }
   async function poll(){
+    const version=controlVersion;
     try{
-      const data=await api("/api/status");if(!controlBusy)renderStatus(data);
+      const data=await api("/api/status");if(!controlBusy&&version===controlVersion)renderStatus(data);
       await refreshNotifications();
       if(Date.now()-lastPageEventsAt>=4000)await refreshPageEvents();
       if(Date.now()-lastHistoryAt>=10000)await refreshHistory();
       await refreshQueue();
-    }catch(_){markOffline();}
+    }catch(_){if(!controlBusy&&version===controlVersion)markOffline();}
     setTimeout(poll,2000);
   }
   function resetHistoryView(){
@@ -617,6 +653,12 @@
     await refreshPageEvents();button.disabled=false;
   });
   $("copyDeviceTopic")?.addEventListener("click",copyDeviceTopic);
+  $("refreshSimulation")?.addEventListener("click",async()=>{
+    const button=$("refreshSimulation"),version=controlVersion;button.disabled=true;
+    try{const data=await api("/api/status");if(!controlBusy&&version===controlVersion)renderStatus(data);await refreshNotifications();}
+    catch(_){if(!controlBusy&&version===controlVersion)markOffline();}
+    finally{button.disabled=controlBusy;}
+  });
   $("refreshDevices")?.addEventListener("click",async()=>{
     const button=$("refreshDevices");button.disabled=true;
     try{renderStatus(await api("/api/status"));await refreshQueue();}catch(_){markOffline();}

@@ -1,16 +1,47 @@
-<div class="page-intro">
-  <div><div class="eyebrow">系统管理 / 联调工作台</div><h2>模拟与联调</h2><p>使用可控场景，验证采样、告警与恢复流程。</p></div>
-  <span class="subtle-badge amber">{{ icon('simulation') }}模拟数据始终标注来源</span>
+<div class="sim-heading">
+  <h1>模拟与联调</h1>
+  <div class="sim-actions"><span id="simUpdated" class="sim-updated" data-state="loading">正在读取</span><button id="refreshSimulation" class="button" type="button">{{ icon('refresh') }}刷新</button></div>
 </div>
-<section class="panel mode-panel"><div class="mode-description"><span class="icon-tile">{{ icon('simulation') }}</span><div><h3>运行模式</h3><p>选择本次联调的数据来源，切换将影响当前后台的所有页面。</p></div></div><label for="modeSelect" class="mode-select-label">数据模式<select id="modeSelect">{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></label></section>
-<div class="simulation-layout">
-  <section class="panel scenario-panel"><div class="panel-heading"><div><h2>烟雾模拟场景</h2><p class="section-subtitle">选择一个场景，观察系统响应</p></div><span class="subtle-badge" id="scenarioLabel">正常</span></div>
-    <div class="control-body"><div class="scenario-grid">{% for key,label in scenarios.items() %}<button type="button" data-scenario="{{ key }}" aria-pressed="false"><span class="scenario-top"><span class="scenario-icon">{{ icon({'normal':'check','rising':'history','warning':'alerts','alarm':'fire','recovery':'refresh','disconnected':'unplug'}[key]) }}</span><span class="scenario-check">{{ icon('check') }}</span></span><strong>{{ label }}</strong><span class="scenario-description">{{ {'normal':'保持在正常范围，建立监测基线','rising':'数值逐渐升高，经过预警与报警','warning':'触发黄色预警，检查事件与弹窗','alarm':'触发红色报警，检查告警联动','recovery':'持续正常 15 秒，生成恢复记录','disconnected':'模拟数据中断，不生成恢复记录'}[key] }}</span></button>{% endfor %}</div>
-      <div class="scenario-notes"><p id="controlHint">模拟数据通过后台存储和告警规则处理。</p><p id="controlMessage" role="status" aria-live="polite"></p></div>
-    </div>
+
+<div id="simulationWorkspace" data-state="loading" aria-busy="true">
+  <section class="sim-mode" aria-labelledby="simModeTitle">
+    <div><h2 id="simModeTitle">运行模式</h2><p>选择数据来源，切换后对整个监控平台生效。</p></div>
+    <div class="sim-mode-field"><label for="modeSelect" class="visually-hidden">数据模式</label><select id="modeSelect" aria-describedby="simModeHint"><option value="" disabled selected>正在读取模式</option>{% for key,label in modes.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select><p id="simModeHint">正在确认当前数据来源</p></div>
   </section>
-  <aside class="simulation-side"><section class="reading-panel" id="simReadingPanel"><div class="reading-heading"><span>{{ icon('smoke_raw') }}当前烟雾读数</span><span class="reading-live" id="simSamplingStatus">等待采样</span></div><div class="simulation-reading"><span>烟雾相对值</span><strong id="simValue">--</strong><small>ADC</small><p id="simState">等待后台采样</p></div><div class="reading-scale" aria-hidden="true"><div class="reading-track"><i id="simIndicator"></i></div><div><span>0</span><span>4095</span></div></div><div class="threshold-pair"><div><span><i class="dot yellow"></i>预警阈值</span><strong id="simWarning">--</strong></div><div><span><i class="dot red"></i>报警阈值</span><strong id="simAlarm">--</strong></div></div><p class="reading-note">阈值用于课程设计演示，实机接入后需依据基线调整。</p></section>
-    <a class="trace-link" href="/alerts"><span class="icon-tile">{{ icon('archive') }}</span><span><strong>查看告警记录</strong><small>核对刚刚触发的事件</small></span>{{ icon('arrow-right') }}</a>
-  </aside>
+  <p id="simFeedback" class="sim-feedback" role="status"></p>
+
+  <div class="sim-layout">
+    <section class="sim-scenarios" aria-labelledby="simScenariosTitle">
+      <div class="sim-section-heading"><h2 id="simScenariosTitle">烟雾测试场景</h2><span id="scenarioLabel">正在读取</span></div>
+      <div class="sim-scenario-list" role="group" aria-label="烟雾测试场景" aria-describedby="controlHint">
+        {% for key,label in scenarios.items() %}
+        <button type="button" class="sim-scenario" data-scenario="{{ key }}" aria-pressed="false">
+          <span class="sim-scenario-symbol">{{ icon({'normal':'check','rising':'history','warning':'alerts','alarm':'fire','recovery':'refresh','disconnected':'unplug'}[key]) }}</span>
+          <span class="sim-scenario-name">{{ {'normal':'正常采样','rising':'逐渐升高','warning':'黄色预警','alarm':'红色报警','recovery':'恢复正常','disconnected':'烟雾断线'}[key] }}</span>
+          <span class="sim-scenario-description">{{ {'normal':'保持正常读数，检查采样与来源','rising':'烟雾逐步升高，观察预警与报警','warning':'触发预警，检查弹窗与事件','alarm':'触发报警，检查告警联动','recovery':'异常后持续正常 15 秒，确认恢复','disconnected':'停止烟雾读数，检查数据缺失状态'}[key] }}</span>
+          <span class="sim-scenario-action" aria-hidden="true"><span>应用</span><span>{{ icon('check') }}当前</span></span>
+        </button>
+        {% endfor %}
+      </div>
+      <div class="sim-control-note"><p id="controlHint">点击场景立即应用，后台持续采样。</p><p id="controlMessage" role="status" aria-live="polite"></p></div>
+    </section>
+
+    <aside class="sim-monitor" aria-label="实时读数与联动状态">
+      <section id="simReadingPanel" class="sim-reading-panel" data-level="gray" aria-labelledby="simReadingTitle">
+        <div class="sim-section-heading"><h2 id="simReadingTitle">当前烟雾读数</h2><span id="simSamplingStatus">等待采样</span></div>
+        <div class="sim-reading-value"><strong id="simValue">--</strong><span>ADC</span></div><p id="simState" class="sim-reading-state">等待后台采样</p>
+        <div class="sim-scale" aria-hidden="true"><div class="sim-scale-track"><i id="simIndicator"></i></div><div class="sim-scale-labels"><span>0</span><span>4095</span></div></div>
+        <dl class="sim-thresholds"><div><dt><i class="dot yellow"></i>预警阈值</dt><dd id="simWarning">--</dd></div><div><dt><i class="dot red"></i>报警阈值</dt><dd id="simAlarm">--</dd></div></dl>
+        <p class="sim-reading-note">烟雾为相对值；演示阈值需在实机接入后标定。</p>
+      </section>
+      <section class="sim-linkage" aria-labelledby="simLinkageTitle">
+        <h2 id="simLinkageTitle">联动状态</h2>
+        <dl><div><dt>网页弹窗</dt><dd id="popupState">正在读取</dd></div><div><dt>邮件告警</dt><dd id="mailLinkState">正在读取</dd></div><div><dt>声光报警</dt><dd id="simSoundState">正在读取</dd></div></dl>
+        <p id="simMailNote">正在读取通知配置</p>
+        <div class="sim-result-links"><a href="/alerts">查看告警记录 {{ icon('arrow-right') }}</a><a href="/history">历史趋势 {{ icon('arrow-right') }}</a></div>
+      </section>
+    </aside>
+  </div>
+
+  <details class="sim-guide"><summary>联调检查要点<span>去重、恢复与断线判定</span>{{ icon('arrow-down') }}</summary><ul><li>先确认正常读数，再触发预警或报警；持续同一异常应合并记录，升级时新增事件。</li><li>异常后切换恢复场景，保持正常采样至少 15 秒，再核对告警页的恢复记录。</li><li>烟雾断线应显示无有效数据，不能作为恢复依据；混合模式下其余传感器需实际上报。</li><li>模拟读数仅用于功能演示与联调；实体声光动作和邮件接收需要分别验证。</li></ul></details>
 </div>
-<section class="panel validation-steps"><div class="panel-heading"><h2>{{ icon('check') }}推荐验证顺序</h2><span class="mini-label">完整走一遍告警流程</span></div><ol><li><b>01</b><div><strong>确认正常采样</strong><span>检查读数与来源标记</span></div></li><li><b>02</b><div><strong>触发预警或报警</strong><span>查看弹窗与事件记录</span></div></li><li><b>03</b><div><strong>测试烟雾断线</strong><span>确认没有误判为恢复</span></div></li><li><b>04</b><div><strong>恢复并保持 15 秒</strong><span>确认生成恢复事件</span></div></li></ol></section>
