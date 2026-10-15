@@ -66,6 +66,12 @@ nano deploy/raspberry-pi/runtime.env
 
 `runtime.env` 由 Bash 加载，仅存放本机维护的 `KEY=value` 配置，字符串需按 Bash 规则加引号。不要把陌生脚本或命令粘贴进去。真实凭据只保存在本地，Git 已忽略该文件。Python 入口本身不自动读取 `.env`。
 
+手动上传配置时推荐使用 LF 换行。新版启动脚本也兼容 CRLF；旧版若报“未知运行模式”，先检查 `FACTORY_MODE` 是否为 `demo`、`hybrid` 或 `live`，并检查行尾回车。完整硬件联调可在树莓派项目目录执行下面命令，备份当前配置、清理行尾回车并将模式设为 `live`，再重新运行 `run.sh`：
+
+```bash
+sed -i".bak-$(date +%Y%m%d-%H%M%S)" 's/\r$//;s/^FACTORY_MODE=.*/FACTORY_MODE=live/' deploy/raspberry-pi/runtime.env
+```
+
 ## 3. 确认 MQTT 可访问
 
 优先复用树莓派已有代理，工厂项目使用独立主题。先确认它能同时接受后台与 ESP32 的连接。Mosquitto 2 默认启动行为可能只监听本机；“电脑上看到 1883”并不自动表示 ESP32 能连上，参见 [Mosquitto 官方迁移说明](https://mosquitto.org/documentation/migrating-to-2-0/)。

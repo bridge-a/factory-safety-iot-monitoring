@@ -2,6 +2,13 @@
 
 发布基线：v0.1.0；下列 main 分支记录按日期追加。软件检查、用户提供的分项实测与整机验收分别记录。
 
+## 2026-10-15：树莓派手动上传与配置换行兼容
+
+- 用户日志确认已在树莓派成功创建环境并安装 Flask、paho-mqtt 等依赖；运行后台时停在 `ValueError: 未知运行模式`，未到网页监听阶段。
+- 本机原 `runtime.env.example` 实际含 CRLF，精简上传目录中的模板为 LF；无法仅凭日志确定远端配置值。修复启动脚本，使其去除配置行尾 CR 后加载；准备脚本新建配置时统一为 LF。现有本地配置不覆盖。
+- `tests/deployment_env_check.py` 在 Git Bash 下检查 LF / CRLF 配置、引号内空格、模式、代理与主题值一致，配置文件保持原样；两份部署脚本通过 `bash -n`。测试未启动真正的 Python 后台或 MQTT / SMTP。Git Bash 本身也容忍本次 CRLF 样例，因此这不是树莓派故障的直接复现，远端修复效果仍待反馈。
+- 已同步 `D:/respi/factory_upload/factory_monitoring/deploy/raspberry-pi/` 的启动、准备脚本与 LF 模板。
+
 ## 2026-10-15：单文件固件入口
 
 - 新增 `factory_all_in_one.ino`，把网络配置和原告警头文件合入一个草图；采集、告警、引脚与协议沿用整合版。添加显式函数声明以兼容 Arduino 的自动原型生成。

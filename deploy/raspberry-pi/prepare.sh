@@ -19,7 +19,7 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements-dashboard.txt
 umask 077
 if [[ ! -f deploy/raspberry-pi/runtime.env ]]; then
-  cp deploy/raspberry-pi/runtime.env.example deploy/raspberry-pi/runtime.env
+  sed 's/\r$//' deploy/raspberry-pi/runtime.env.example > deploy/raspberry-pi/runtime.env
 fi
 mkdir -p data
 echo 'Ready. Review deploy/raspberry-pi/runtime.env, then run:'
