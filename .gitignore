@@ -12,6 +12,7 @@ secrets/
 /firmware/local/
 /firmware/**/build/
 /deploy/raspberry-pi/runtime.env
+/deploy/raspberry-pi/runtime.env.bak-*
 *.bin
 *.elf
 *.map

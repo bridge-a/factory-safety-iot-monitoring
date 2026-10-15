@@ -9,9 +9,19 @@ import csv
 import io
 from datetime import datetime, timezone, timedelta
 from flask import Flask, jsonify, render_template, request, Response, stream_with_context
+from werkzeug.serving import WSGIRequestHandler
 from alert_rule import METRICS
 from runtime import MonitorRuntime, MODES, SCENARIOS
 import settings
+
+
+class PreviewRequestHandler(WSGIRequestHandler):
+    def log_request(self, code="-", size="-"):
+        # Avoid ten successful JPEG access-log lines per viewer per second.
+        # Failed frame requests and all other routes keep their usual logging.
+        if str(code) == "200" and self.path.split("?", 1)[0] == "/api/camera/frame":
+            return
+        super().log_request(code, size)
 
 
 def create_app(runtime=None, start_runtime=False):
@@ -44,6 +54,14 @@ def create_app(runtime=None, start_runtime=False):
     @app.get("/api/status")
     def status():
         return jsonify(dict(runtime.snapshot(), thresholds=METRICS))
+
+    @app.get("/api/camera/frame")
+    def camera_frame():
+        frame = runtime.camera.frame()
+        if frame is None:
+            return jsonify(error=runtime.camera.snapshot()["detail"]), 503
+        jpeg, sequence = frame
+        return Response(jpeg, mimetype="image/jpeg", headers={"X-Camera-Sequence": str(sequence)})
 
     def history_range():
         mode = request.args.get("mode", runtime.mode)
@@ -159,4 +177,5 @@ def create_app(runtime=None, start_runtime=False):
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     app = create_app(start_runtime=os.environ.get("FACTORY_DISABLE_RUNTIME") != "1")
-    app.run(host=settings.WEB_HOST, port=settings.WEB_PORT, threaded=True, use_reloader=False)
+    app.run(host=settings.WEB_HOST, port=settings.WEB_PORT, threaded=True, use_reloader=False,
+            request_handler=PreviewRequestHandler)

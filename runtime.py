@@ -7,6 +7,7 @@ import threading
 import time
 
 from alert_rule import METRICS, evaluate_metric
+from camera_capture import CameraCapture
 from environment_store import EnvironmentStore
 from mqtt_ingest import normalize_payload
 from notification_core import AlertStore, MailSettings, deliver_one
@@ -19,10 +20,11 @@ SCENARIOS = {"normal": "正常", "rising": "逐渐升高", "warning": "预警",
 
 
 class MonitorRuntime:
-    def __init__(self, data_dir=settings.DATA_DIR, mode=settings.MODE, mail=None, clock=time.time):
+    def __init__(self, data_dir=settings.DATA_DIR, mode=settings.MODE, mail=None, clock=time.time, camera=None):
         if mode not in MODES:
             raise ValueError("未知运行模式")
         self.clock = clock
+        self.camera = camera if camera is not None else CameraCapture()
         self.env = EnvironmentStore(data_dir / "environment.sqlite3")
         self.alerts = AlertStore(data_dir / "alerts.sqlite3")
         self.mail_error = False
@@ -151,6 +153,7 @@ class MonitorRuntime:
                     "mail": {"enabled": self.mail.enabled, "allow_demo": self.mail.allow_demo,
                              "config_error": self.mail_error},
                     "vision": {"state": "pending", "detail": "明火模型待接入；当前未运行视觉检测"},
+                    "camera": self.camera.snapshot(),
                     "sound_light": self.sound_light_status(),
                     "error": self.error}
 
@@ -222,6 +225,7 @@ class MonitorRuntime:
                 return
             self.started = True
         self._start_mqtt()
+        self.camera.start()
         for target in (self._sample_loop, self._mail_loop):
             thread = threading.Thread(target=target, daemon=True)
             self.threads.append(thread)
@@ -229,6 +233,7 @@ class MonitorRuntime:
 
     def stop(self):
         self.stop_event.set()
+        self.camera.stop()
         if self.client:
             self.client.disconnect()
             self.client.loop_stop()

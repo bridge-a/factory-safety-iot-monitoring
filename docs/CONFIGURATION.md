@@ -20,6 +20,12 @@
 | `FACTORY_ALARM_CONTROL_TOPIC` | `factory/workshop1/control/alarm` | 声光指令主题，与固件一致 |
 | `FACTORY_DATA_DIR` | 项目下的 `data/` | 数据库目录 |
 | `FACTORY_MAIL_CONFIG` | 项目下的 `mail.ini` | 本机邮件配置路径 |
+| `FACTORY_CAMERA_ENABLED` | `0` | 可选 USB 摄像头采集，`1` 启用 |
+| `FACTORY_CAMERA_DEVICE` | `/dev/video0` | V4L2 设备，建议使用 by-id 固定链接 |
+| `FACTORY_CAMERA_WIDTH` / `FACTORY_CAMERA_HEIGHT` | `1280` / `720` | MJPEG 画面分辨率 |
+| `FACTORY_CAMERA_FPS` | `30` | 摄像头输入帧率，不是模型推理帧率 |
+
+摄像头需系统 FFmpeg，无新增 Python 依赖；接入、配置脚本和验收见 [USB 摄像头说明](CAMERA_INTEGRATION.md)。
 
 后台每 2 秒采样，ESP32 超过 20 秒没有新数据则视为过期。只运行一个后台进程；网页关闭不影响后台线程，后台退出则停止监测。当前 MQTT 连接面向可信局域网，支持可选用户名和密码，尚未提供 TLS 配置；凭据不返回到网页状态接口。
 

@@ -6,12 +6,13 @@
 <div class="vision-workspace">
   <section class="camera-view" aria-labelledby="cameraTitle">
     <div class="vision-section-heading"><h2 id="cameraTitle">现场画面</h2><span class="camera-id">CAM 01</span></div>
-    <div class="camera-screen" id="cameraScreen" data-state="loading" aria-label="现场画面待接入">
-      <span class="camera-screen-label"><i></i><span id="cameraAvailability">正在读取状态</span></span>
-      <div class="camera-empty">{{ icon('vision') }}<strong id="cameraEmptyTitle">等待摄像头画面</strong><p id="cameraEmptyDescription">USB 摄像头尚未接入</p></div>
+    <div class="camera-screen" id="cameraScreen" data-camera-stage data-camera-live="false" aria-label="现场画面待接入">
+      <img class="camera-live-image" data-camera-image alt="工厂模拟区摄像头实时画面" hidden>
+      <span class="camera-screen-label"><i></i><span id="cameraAvailability" data-camera-label>正在读取状态</span></span>
+      <div class="camera-empty" data-camera-placeholder>{{ icon('vision') }}<strong id="cameraEmptyTitle">等待摄像头画面</strong><p id="cameraEmptyDescription" data-camera-detail>正在确认摄像头采集状态</p></div>
       <div class="camera-screen-footer"><span>工厂模拟区 · 01</span><span>USB 摄像头</span></div>
     </div>
-    <p class="camera-caption">{{ icon('fire') }}<span>识别目标：明火 / 火焰</span><span class="camera-caption-end">画面未接入</span></p>
+    <p class="camera-caption">{{ icon('fire') }}<span>识别目标：明火 / 火焰</span><span class="camera-caption-end" data-camera-caption>画面未接入</span></p>
   </section>
 
   <aside class="vision-inspector" aria-labelledby="visionStatusTitle">

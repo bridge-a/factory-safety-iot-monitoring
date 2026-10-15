@@ -5,7 +5,8 @@
 <title>{{ page_title }} · 工厂安全生产监控平台</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 {% if page in ['alerts', 'history', 'vision', 'devices', 'simulation'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace-shell.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/' ~ page ~ '.css') }}">{% endif %}
-<script defer src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script><script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script></head>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/camera.css') }}">
+<script defer src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script><script defer src="{{ url_for('static', filename='js/camera.js') }}"></script><script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script></head>
 <body data-page="{{ page }}">
 <aside class="sidebar">
 <a class="brand" href="/" aria-label="工厂监控首页"><span class="brand-mark">{{ brand_symbol() }}</span><strong>工厂安全监控</strong><small>FACTORY MONITOR</small></a>
@@ -18,7 +19,7 @@
 {% include 'partials/workspace_topbar.html' %}
 {% else %}
 <header class="top-header"><div class="title-block"><h1>工厂安全生产监控平台</h1><p>{{ page_title }}<span>环境感知 · 异常预警 · 联动通知</span></p></div>
-<div class="status-console"><div><span>ESP32</span><strong id="espStatus">待接入</strong></div><div><span>摄像头</span><strong class="muted">待接入</strong></div><div><span>数据库</span><strong id="databaseStatus">检测中</strong></div><div><span>MQTT</span><strong id="mqttStatus">检测中</strong></div><div><span>邮件</span><strong id="mailStatus">未启用</strong></div></div>
+<div class="status-console"><div><span>ESP32</span><strong id="espStatus">待接入</strong></div><div><span>摄像头</span><strong id="cameraStatus" class="muted">待接入</strong></div><div><span>数据库</span><strong id="databaseStatus">检测中</strong></div><div><span>MQTT</span><strong id="mqttStatus">检测中</strong></div><div><span>邮件</span><strong id="mailStatus">未启用</strong></div></div>
 <div class="header-risk"><span>综合风险</span><strong id="riskLabel">等待数据</strong></div>
 <div class="header-clock"><span id="date">--</span><time id="clock">--:--:--</time></div></header>
 <div class="source-bar"><span id="connection" class="connection"><i class="dot gray"></i>正在连接</span><span class="source-separator"></span><strong id="modeLabel">正在读取模式</strong><span id="modeDescription">数据均标注来源</span><a href="/simulation">切换模式 ›</a></div>

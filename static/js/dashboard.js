@@ -60,6 +60,7 @@
     }
   }
   function markOffline(message="后台连接中断") {
+    window.FactoryCamera?.update(null);
     connection(message,"red");
     renderOverviewSound(null);set("linkageNote","后台连接中断，声光状态未知。");
     renderVisionIndicator(null);
@@ -124,7 +125,14 @@
       button.disabled=data.mode==="live"||controlBusy;
     });
     set("controlHint",data.mode==="live"?"真实采集模式下，测试场景不可用；切换模式后可继续模拟。":"点击场景立即应用；关闭网页后，后台仍持续采样。");
-    if(!data.sample || !data.runtime_online){markOffline(data.error || "等待后台采样");return;}
+    if(!data.sample || !data.runtime_online){
+      markOffline(data.error || "等待后台采样");
+      window.FactoryCamera?.update(data.camera);
+      renderVisionIndicator(data.vision);
+      if(page==="vision")renderVisionStatus(data.vision);
+      return;
+    }
+    window.FactoryCamera?.update(data.camera);
     renderVisionIndicator(data.vision);
     if(page==="vision")renderVisionStatus(data.vision);
     const sample=data.sample;
@@ -191,12 +199,9 @@
   function renderVisionStatus(vision) {
     const pending=vision?.state==="pending";
     $("visionStatus").dataset.state=pending?"pending":"unknown";
-    $("cameraScreen").dataset.state=pending?"pending":"unknown";
     set("visionStateLabel",pending?"检测未启用":"检测状态未知");
     set("visionStateDescription",pending?"尚未运行视觉检测，当前无法判断明火状态。":"暂时无法确认检测状态，请刷新重试。");
-    set("visionCameraState",pending?"待接入":"未知");set("visionModelState",pending?"待部署":"未知");
-    set("cameraAvailability",pending?"摄像头待接入":"状态未确认");
-    set("cameraEmptyDescription",pending?"USB 摄像头尚未接入":"暂未获取现场画面");
+    set("visionModelState",pending?"待部署":"未知");
     set("visionUpdated",vision?"更新于 "+timeText(Date.now()/1000):"状态读取失败");
     $("visionUpdated").dataset.error=String(!vision);
   }
@@ -269,7 +274,6 @@
       sourceEl.dataset.state=value==null?"missing":source;
       sourceEl.textContent=value==null?(source==="simulation"?"模拟 · 无数据":"无有效数据"):sources[source]||"来源未知";
     });
-    setDeviceState("deviceVisionState",data.vision?.state==="pending"?"待接入":"状态未知",data.vision?.state==="pending"?"pending":"unknown");
     setDeviceState("deviceSoundState",data.sound_light?.state==="ready"?data.sound_light.detail:data.sound_light?.state==="offline"?"设备离线":data.sound_light?.state==="pending"?"等待上报":"状态未知",data.sound_light?.state==="ready"?"mqtt":data.sound_light?.state==="pending"?"pending":"unknown");
     set("deviceDataNote",data.mode==="demo"?"模拟读数仅用于功能演示与联调，不代表硬件已连接。":data.mode==="hybrid"?"烟雾使用模拟读数，其余指标以有效的实际上报为准。":"当前显示实际采集读数；缺失或过期值保留为空。");
   }

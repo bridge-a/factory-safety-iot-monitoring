@@ -1,0 +1,11 @@
+/* Shared camera surface: preserve each page's layout and the full source frame. */
+[data-camera-stage] .camera-live-image { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; background:#19231f; z-index:0; }
+[data-camera-stage] [hidden] { display:none !important; }
+[data-camera-stage][data-camera-live="true"] { background:#19231f; }
+[data-camera-stage][data-camera-live="true"] .factory-outline { visibility:hidden; }
+[data-camera-stage][data-camera-live="true"] .video-caption { color:#e0e9e3; background:#17241dcc; padding:5px 10px; border-radius:4px; z-index:1; }
+.camera-screen-label,.camera-screen-footer { z-index:1; }
+[data-camera-live="true"] .camera-screen-label { padding:6px 9px; border-radius:4px; background:#17241dcc; color:#edf5ef; }
+[data-camera-live="true"] .camera-screen-label>i { background:#68c19a; }
+[data-camera-live="true"] .camera-screen-footer { color:#edf5ef; text-shadow:0 1px 4px #000; }
+[data-camera-detail] { max-width:420px; overflow-wrap:anywhere; }
