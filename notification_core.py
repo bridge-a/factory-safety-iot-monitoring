@@ -263,7 +263,6 @@ def compose_mail(item, settings):
         f"等级：{LEVEL_NAMES[event['level']]}", f"原因：{event['reason']}",
         f"触发指标：{event['target']}，数值：{event['value']}",
         "", "这是事件发生时的记录。请查看监控页面确认当前状态。",
-        "本系统当前用于课程设计演示，阈值为演示配置。",
     ]))
     return message
 
