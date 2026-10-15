@@ -54,6 +54,9 @@ main{margin-left:var(--sidebar);padding:20px 24px 12px}.top-header{display:grid;
 }
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
+/* Keep navigation metrics independent of each workspace's body typography. */
+.sidebar{line-height:normal}
+
 /* Reported actuator modes remain legible without sampling the blinking outputs. */
 .linkage-grid [data-linkage-device]{transition:background-color .2s,border-color .2s}
 .linkage-grid [data-linkage-device] strong{display:flex;align-items:center;gap:6px;line-height:1.5}

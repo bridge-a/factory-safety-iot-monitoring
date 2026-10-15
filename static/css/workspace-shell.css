@@ -1,22 +1,7 @@
-/* Shared navigation, status bar and controls for the refined workspace pages. */
-:root { --sidebar:208px; --ink:#26332e; --muted:#69766f; --line:#e2e7e3; --paper:#fff; }
+/* Workspace content, status bar and controls. Navigation is shared in dashboard.css. */
+:root { --ink:#26332e; --muted:#69766f; --line:#e2e7e3; --paper:#fff; }
 body { background:#fafbfa; color:var(--ink); font-size:14px; line-height:1.5; }
 .visually-hidden { position:absolute!important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-.sidebar { width:var(--sidebar); background:#164c41; padding:24px 14px 22px; align-items:stretch; color:#d7e5dc; }
-.brand { flex-direction:row; gap:10px; padding:0 7px; justify-content:flex-start; }
-.brand-mark { width:34px; height:34px; border-radius:7px; border:1px solid #bdd1b357; box-shadow:none; background:transparent; flex-shrink:0; }
-.brand>strong { display:block; font-size:14px; font-weight:550; letter-spacing:0; margin:0; color:#f0f4ed; }
-.brand>small,.sidebar-scene { display:none; }
-.sidebar nav { margin-top:34px; gap:6px; }
-.nav-item { padding:11px 13px; gap:12px; font-size:14px; font-weight:400; border-radius:6px; border:0; color:#b8cfc3; justify-content:flex-start; min-height:44px; }
-.nav-item>span { display:block; }
-.nav-item>.icon { width:18px; height:18px; stroke-width:1.6; color:inherit; }
-.nav-item.active { color:#fff; background:#ffffff15; box-shadow:inset 2px 0 #c7b985; border:0; font-weight:500; }
-.nav-item:hover { background:#ffffff0c; color:#f0f5ef; }
-.nav-item:nth-child(5) { margin-top:24px; }
-.sidebar-footer { display:block; padding:18px 7px 0; font-size:12px; color:#adc4b7; }
-.sidebar-footer small { font-size:11px; text-align:left; margin-top:6px; color:#91ad9e; }
-.sidebar-footer .dot { width:5px; height:5px; background:#b5c7b2; }
 main { margin-left:var(--sidebar); padding:0; min-height:100dvh; }
 .alerts-topbar { min-height:66px; padding:0 32px; border-bottom:1px solid #e7ece8; background:#fff; display:flex; align-items:center; justify-content:space-between; gap:20px; }
 .site-location { font-size:13px; color:#5f6f65; white-space:nowrap; }
@@ -53,17 +38,9 @@ footer { display:none; }
 
 @media(min-width:1750px) { .workspace-page { padding-top:38px; } }
 @media(max-width:1150px) {
-  :root { --sidebar:184px; }.sidebar { padding-left:10px; padding-right:10px; }.brand { padding-left:5px; gap:8px; }.brand>strong { font-size:13px; }
   .workspace-page { padding:28px 24px; }.alerts-topbar { padding:13px 24px; flex-wrap:wrap; gap:12px; }
 }
 @media(max-width:720px) {
-  :root { --sidebar:0px; }
-  .sidebar { position:relative; width:100%; padding:15px 13px 9px; flex-direction:row; flex-wrap:wrap; align-items:center; }
-  .brand { width:auto; padding:0 3px; gap:9px; }.brand-mark { width:28px; height:28px; }.brand>strong { font-size:13px; }
-  .sidebar nav { margin-top:16px; width:100%; gap:2px; display:flex; }
-  .nav-item,.nav-item:nth-child(5) { display:flex; flex:1; flex-direction:column; justify-content:center; gap:6px; padding:8px 0; margin:0; border-radius:5px; min-width:0; min-height:52px; }
-  .nav-item>span { display:block; font-size:10px; }.nav-item>.icon { width:17px; height:17px; }.nav-item.active { box-shadow:inset 0 -2px #c7b985; }
-  .sidebar-footer { display:none; }
   main { margin-left:0; padding:0; }
   .alerts-topbar { position:relative; flex-wrap:wrap; justify-content:space-between; gap:10px; padding:12px 16px; min-height:50px; }
   .site-location { font-size:12px; }.site-location .location-divider { padding:0 6px; }
