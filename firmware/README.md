@@ -4,9 +4,9 @@
 
 ## 打开、配置与上传
 
-用 Arduino IDE **直接打开** `factory_sensors/factory_sensors.ino`，保留同目录的 `alarm_logic.h` 和 `config.example.h`。不要只把 `.ino` 复制到另一个缺少头文件的草图中。
+推荐使用 [单文件完整程序](factory_all_in_one/factory_all_in_one.ino)：网络配置、告警逻辑和采集程序都在同一个 `.ino` 内，不需要配套配置头文件。仍需安装下方列出的传感器库。
 
-复制 `config.example.h` 为同目录的 `config.local.h`，填写 Wi-Fi 名称、密码、树莓派局域网 IPv4 地址：
+本机已生成 `firmware/local/factory_all_in_one/factory_all_in_one.ino`，直接用 Arduino IDE 打开它，在顶部填写 Wi-Fi 名称、密码、树莓派局域网 IPv4 地址：
 
 ```cpp
 constexpr char WIFI_SSID[] = "你的2.4GHz Wi-Fi名称";
@@ -15,7 +15,9 @@ constexpr char MQTT_HOST[] = "树莓派的局域网IPv4地址";
 constexpr uint16_t MQTT_PORT = 1883;
 ```
 
-沿用树莓派已有 Mosquitto。ESP32 的地址不能填 `localhost`；同机运行的树莓派后台可使用 `127.0.0.1`。代理启用认证时填写 MQTT 用户名和密码。真实配置已被 Git 忽略；空配置仍可编译、串口采样和本地告警，网络关闭。
+沿用树莓派已有 Mosquitto。ESP32 的地址不能填 `localhost`；同机运行的树莓派后台可使用 `127.0.0.1`。代理启用认证时填写 MQTT 用户名和密码。`firmware/local/` 整个目录已被 Git 忽略；GitHub 中的单文件模板保持空配置。空配置仍可编译、串口采样和本地告警，网络关闭。
+
+新克隆仓库可执行 `python firmware/export_single_file.py` 创建本地单文件；已有本地文件时脚本拒绝覆盖，保留用户填写的内容。发布模板通过 `python firmware/export_single_file.py --public` 从 `factory_sensors/` 维护版导出，避免手工维护两套告警逻辑。维护版保留原有配置头文件方式，供代码维护与逻辑测试使用。
 
 选择 ESP32S3 Dev Module，串口 115200；端口、Flash / PSRAM、USB CDC 沿用已经成功上传测试程序的设置。本次编译参数为 `esp32:esp32:esp32s3:CDCOnBoot=cdc`。上传替换板上测试程序，不改动旧项目文件。
 
@@ -85,7 +87,7 @@ QQ 邮件默认未启用，另按本地配置联调。编译通过不等于硬�
 本机依赖：Arduino CLI 1.1.1、esp32 core 3.0.7、Adafruit SHT31 2.2.2、Adafruit BusIO 1.17.4、BH1750 1.3.0、PubSubClient 2.8、Sensirion I2C SCD4x 1.1.0、Sensirion Core 0.7.3。无需新增 ArduinoJson 库。
 
 ```powershell
-arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --build-path artifacts/integrated-firmware-build firmware/factory_sensors
+arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --build-path artifacts/integrated-firmware-build firmware/local/factory_all_in_one
 g++ -std=c++11 -Wall -Wextra -pedantic tests/firmware_alarm_check.cpp -o artifacts/firmware-alarm-check.exe
 .\artifacts\firmware-alarm-check.exe
 ```

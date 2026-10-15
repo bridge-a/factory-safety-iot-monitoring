@@ -118,7 +118,7 @@ sudo systemctl start factory-monitor.service
 
 ## 5. ESP32 烧录准备
 
-见 [固件说明](../firmware/README.md)。保留原草图，从 `firmware/factory_sensors/` 打开新草图，填写被 Git 忽略的 `config.local.h`。MQTT 主机填写树莓派局域网地址，不能填 ESP32 自己的 `localhost`。
+见 [固件说明](../firmware/README.md)。推荐直接打开本机 `firmware/local/factory_all_in_one/factory_all_in_one.ino`，在程序顶部填写 Wi-Fi 和 MQTT 配置；新克隆仓库可先执行 `python firmware/export_single_file.py` 生成该文件。该本地目录不上传 GitHub，公开单文件模板保持空配置。MQTT 主机填写树莓派局域网地址，不能填 ESP32 自己的 `localhost`。
 
 本阶段的报文示例（仅说明字段，不向真实主题注入）：
 

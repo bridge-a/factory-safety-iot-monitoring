@@ -9,6 +9,7 @@ secrets/
 *.key
 *.p12
 /firmware/**/config.local.h
+/firmware/local/
 /firmware/**/build/
 /deploy/raspberry-pi/runtime.env
 *.bin
