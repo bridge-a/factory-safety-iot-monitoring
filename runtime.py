@@ -8,6 +8,7 @@ import time
 
 from alert_rule import METRICS, evaluate_metric
 from camera_capture import CameraCapture
+from vision_detector import VisionDetector
 from environment_store import EnvironmentStore
 from mqtt_ingest import normalize_payload
 from notification_core import AlertStore, MailSettings, deliver_one
@@ -47,6 +48,34 @@ class MonitorRuntime:
         self.threads = []
         self.client = None
         self.started = False
+        self.evidence_dir = data_dir / "vision" / "events"
+        self.vision = VisionDetector(self.camera, self.observe_vision)
+
+    def observe_vision(self, result, jpeg):
+        """Observe only newly inferred frames; missing frames cannot clear an alarm."""
+        with self.lock:
+            now = self.clock()
+            confidence = result.get("confidence", 0.)
+            data = dict(self.sample or {}, device="workshop1:vision", mode=self.mode,
+                        metric="fire", event_source="vision", is_demo=False,
+                        vision={key: result.get(key) for key in ("confidence", "model", "boxes", "sequence", "threshold")})
+            evaluation = {"level": result["level"], "reason": result["reason"],
+                          "abnormal": [("fire", confidence, "red")] if result["level"] == "red" else []}
+            event = self.alerts.observe(data, evaluation, self.mail.enabled, now, self.mail.allow_demo)
+            if event and event["level"] == "red" and jpeg:
+                try:
+                    self.evidence_dir.mkdir(parents=True, exist_ok=True)
+                    path = self.evidence_dir / f"{event['id']}.jpg"
+                    path.write_bytes(jpeg)
+                    # Only generated evidence JPEGs are retained; SQLite records stay.
+                    images = sorted((p for p in self.evidence_dir.glob("*.jpg") if p.stem.isdigit()),
+                                    key=lambda p: int(p.stem), reverse=True)
+                    for old in images[200:]:
+                        old.unlink()
+                except OSError:
+                    LOGGER.exception("明火事件截图保存失败；事件记录仍然保留")
+            if event and self.client and self.mqtt_connected:
+                self.client.publish(settings.ALERT_TOPIC, json.dumps(event, ensure_ascii=False), qos=1, retain=False)
 
     def ingest(self, payload, now=None):
         normalized = normalize_payload(payload)
@@ -123,7 +152,7 @@ class MonitorRuntime:
             # Commands echo a fresh sample token; no retained/offline command queue.
             # The firmware keeps its own local alarm active even if this asks for green.
             if fresh and self.client and self.mqtt_connected and self.received.get("alarm_token") and self.received.get("sound_light"):
-                level = self.alerts.active_level(f"workshop1:{self.mode}:{key}" for key in METRICS)
+                level = self.alerts.active_level([*(f"workshop1:{self.mode}:{key}" for key in METRICS), "workshop1:vision"])
                 self.client.publish(settings.ALARM_CONTROL_TOPIC,
                                     f"{self.received['alarm_token']}|{level}", qos=0, retain=False)
             self.error = None
@@ -144,6 +173,10 @@ class MonitorRuntime:
     def snapshot(self):
         with self.lock:
             sample = copy.deepcopy(self.sample)
+            vision = self.vision.snapshot()
+            vision["alarm_active"] = self.alerts.active_level(["workshop1:vision"]) == "red"
+            if sample and vision["alarm_active"]:
+                sample["level"] = "red"
             # A stopped worker or frozen backend must never look like fresh normal readings.
             stale = sample is not None and self.clock() - sample["ts"] >= settings.OFFLINE_SECONDS
             return {"sample": sample, "mode": self.mode, "mode_label": MODES[self.mode],
@@ -152,7 +185,7 @@ class MonitorRuntime:
                              "topic": settings.ENV_TOPIC},
                     "mail": {"enabled": self.mail.enabled, "allow_demo": self.mail.allow_demo,
                              "config_error": self.mail_error},
-                    "vision": {"state": "pending", "detail": "明火模型待接入；当前未运行视觉检测"},
+                    "vision": vision,
                     "camera": self.camera.snapshot(),
                     "sound_light": self.sound_light_status(),
                     "error": self.error}
@@ -226,6 +259,7 @@ class MonitorRuntime:
             self.started = True
         self._start_mqtt()
         self.camera.start()
+        self.vision.start()
         for target in (self._sample_loop, self._mail_loop):
             thread = threading.Thread(target=target, daemon=True)
             self.threads.append(thread)
@@ -233,6 +267,7 @@ class MonitorRuntime:
 
     def stop(self):
         self.stop_event.set()
+        self.vision.stop()
         self.camera.stop()
         if self.client:
             self.client.disconnect()

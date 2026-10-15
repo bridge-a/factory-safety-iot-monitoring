@@ -1,0 +1,4 @@
+# Optional CPU inference only; no PyTorch/training dependency on the Pi.
+numpy==1.26.4
+onnxruntime==1.23.2
+Pillow>=10.4,<13

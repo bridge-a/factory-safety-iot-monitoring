@@ -135,6 +135,8 @@ class AlertStore:
                      "target": primary[0] or data.get("metric"), "value": primary[1], "snapshot": snapshot,
                      "mode": data.get("mode", "live"), "is_demo": bool(data.get("is_demo", False))}
             event.update(snapshot)  # 兼容原看板的最新告警字段。
+            if data.get("event_source") == "vision":
+                event["vision"] = data.get("vision", {})
             notify = level in {"yellow", "red"}
             status = ("pending" if mail_enabled else "disabled") if notify else "not_required"
             if notify and mail_enabled and event["is_demo"] and not allow_demo:
@@ -154,6 +156,11 @@ class AlertStore:
             rows = db.execute("SELECT level FROM device_state WHERE device IN (" +
                               ",".join("?" for _ in devices) + ")", devices).fetchall()
         return max((row["level"] for row in rows), key=lambda level: SEVERITY[level], default="green")
+
+    def get_event(self, event_id):
+        with closing(self.connect()) as db:
+            row = db.execute("SELECT * FROM alerts WHERE id=?", (event_id,)).fetchone()
+        return self.decode(row) if row else None
 
     @staticmethod
     def decode(row):
@@ -258,10 +265,11 @@ def compose_mail(item, settings):
     message["Date"] = format_datetime(event_time)
     message["Message-ID"] = f"<factory-{item['event_key']}@{settings.username.split('@')[-1]}>"
     message.set_content("\n".join([
-        prefix + "工厂环境监测告警", f"事件编号：{item['id']}",
+        prefix + ("工厂明火检测告警" if event.get("source") == "vision" else "工厂环境监测告警"), f"事件编号：{item['id']}",
         f"发生时间：{event_time:%Y-%m-%d %H:%M:%S}（北京时间）", f"设备：{event['device']}",
         f"等级：{LEVEL_NAMES[event['level']]}", f"原因：{event['reason']}",
-        f"触发指标：{event['target']}，数值：{event['value']}",
+        (f"检测目标：明火，置信度：{event['vision']['confidence']:.0%}" if event.get("source") == "vision"
+         else f"触发指标：{event['target']}，数值：{event['value']}"),
         "", "这是事件发生时的记录。请查看监控页面确认当前状态。",
     ]))
     return message

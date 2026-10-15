@@ -45,16 +45,16 @@
 
 {% macro video(large=false) %}
 <section class="panel video-panel {{ 'large-video' if large else '' }}">
-  <div class="panel-heading"><h2>{{ icon('vision') }}现场画面与明火识别</h2><span class="status-text"><i class="dot gray"></i>模型待接入</span></div>
+  <div class="panel-heading"><h2>{{ icon('vision') }}现场画面与明火识别</h2><span class="status-text" id="overviewVisionHeader">正在读取状态</span></div>
   <div class="video-body">
     <div class="video-stage" data-camera-stage data-camera-live="false">
       <img class="camera-live-image" data-camera-image alt="工厂模拟区摄像头实时画面" hidden>
       <div class="camera-tag">CAM-01 · 工厂模拟区</div><span class="video-state" data-camera-label>正在读取状态</span>
       <svg class="factory-outline" viewBox="0 0 600 300" aria-hidden="true"><path d="M30 255h540M60 250V130l110 55v-85l115 70V55h52v125l93-48v118M285 55V30h52v25M80 222h52v-24H80ZM186 220h52v-23h-52ZM355 215h45v-23h-45M440 250v-92h68v92M457 159v-24h35v24M98 130V93h45v58M78 78c0-32 47-8 47-44M324 16c0-13 20-9 21-16"/><path class="thin" d="M25 283h550M45 273h485M369 82h131M369 90h70M499 82v40M45 25h45M45 25v45M555 25h-45M555 25v45"/></svg>
       <div class="video-placeholder" data-camera-placeholder><span class="camera-symbol">{{ icon('vision') }}</span><strong>等待接入现场画面</strong><p data-camera-detail>正在确认摄像头采集状态</p></div>
-      <span class="video-caption">明火模型待接入 · 当前未进行视觉检测</span>
+      <span class="video-caption" id="overviewVisionCaption">正在读取检测状态</span>
     </div>
-    <div class="vision-footer"><div><span>检测目标</span><strong>明火 / 火焰</strong></div><div><span>最高置信度</span><strong>--</strong></div><div><span>检测状态</span><strong class="muted">尚未运行</strong></div></div>
+    <div class="vision-footer"><div><span>检测目标</span><strong>明火 / 火焰</strong></div><div><span>最高置信度</span><strong id="overviewVisionConfidence">—</strong></div><div><span>检测状态</span><strong class="muted" id="overviewVisionState">正在读取</strong></div></div>
   </div>
 </section>
 {% endmacro %}

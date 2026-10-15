@@ -8,7 +8,7 @@ import math
 import csv
 import io
 from datetime import datetime, timezone, timedelta
-from flask import Flask, jsonify, render_template, request, Response, stream_with_context
+from flask import Flask, jsonify, render_template, request, Response, stream_with_context, send_file, abort
 from werkzeug.serving import WSGIRequestHandler
 from alert_rule import METRICS
 from runtime import MonitorRuntime, MODES, SCENARIOS
@@ -57,11 +57,19 @@ def create_app(runtime=None, start_runtime=False):
 
     @app.get("/api/camera/frame")
     def camera_frame():
-        frame = runtime.camera.frame()
+        frame = runtime.vision.frame() or runtime.camera.frame()
         if frame is None:
             return jsonify(error=runtime.camera.snapshot()["detail"]), 503
         jpeg, sequence = frame
         return Response(jpeg, mimetype="image/jpeg", headers={"X-Camera-Sequence": str(sequence)})
+
+    @app.get("/api/vision/events/<int:event_id>/image")
+    def vision_evidence(event_id):
+        event = runtime.alerts.get_event(event_id)
+        path = runtime.evidence_dir / f"{event_id}.jpg"
+        if not event or event.get("source") != "vision" or event["level"] != "red" or not path.is_file():
+            abort(404)
+        return send_file(path, mimetype="image/jpeg")
 
     def history_range():
         mode = request.args.get("mode", runtime.mode)

@@ -41,11 +41,17 @@
     indicator.title=description;
   }
   function renderVisionIndicator(vision){
-    const indicator=$("visionIndicator");if(!indicator)return;
-    const pending=vision?.state==="pending",label=pending?"明火检测未启用":"明火检测状态未知";
-    indicator.dataset.state=pending?"pending":"unknown";
-    if($("visionIndicatorText").textContent!==label)set("visionIndicatorText",label);
-    indicator.title=pending?"尚未运行视觉检测，点击查看检测状态":"暂时无法确认视觉检测状态，点击查看";
+    const state=vision?.state||"unknown",label=visionLabel(vision);
+    const indicator=$("visionIndicator");
+    if(indicator){indicator.dataset.state=vision?.alarm_active?"alarm":state;set("visionIndicatorText",label);indicator.title=vision?.detail||"视觉状态读取失败";}
+    set("overviewVisionState",label);set("overviewVisionHeader",label);
+    set("overviewVisionConfidence",vision?.confidence==null?"—":(vision.confidence*100).toFixed(0)+"%");
+    set("overviewVisionCaption",vision?.enabled?"YOLOv8n · "+(vision?.detail||label):"明火模型待接入 · 当前未进行视觉检测");
+    if($("overviewVisionState"))$("overviewVisionState").style.color=vision?.alarm_active?"var(--red)":state==="ready"?"var(--teal)":"var(--muted)";
+  }
+  function visionLabel(vision){
+    if(vision?.alarm_active)return vision.state==="alarm"?"检测到明火":"明火报警 · 待确认恢复";
+    return {pending:"明火检测未启用",starting:"模型加载中",ready:"检测运行中",candidate:"疑似明火 · 确认中",alarm:"检测到明火",offline:"视觉画面中断",error:"检测异常"}[vision?.state]||"明火检测状态未知";
   }
   function renderOverviewSound(sound){
     const ready=sound?.state==="ready",level=ready?sound.effective_level:"gray";
@@ -166,6 +172,11 @@
       set("riskSource",abnormal.length?abnormal.map(([key])=>thresholds[key].label).join("、"):sample.missing.length?"数据有效性":"环境监测");
       set("riskReason",abnormal.length?abnormal.map(([,v])=>v.reason).join("；"):sample.missing.length?sample.missing.join("、")+"暂无有效数据":"当前有效数据在演示阈值范围内");
       set("riskAdvice",abnormal.length?"处置提示：核查异常来源与现场情况。":sample.missing.length?"处置提示：检查传感器与数据连接。":"处置提示：继续监测环境变化。");
+      if(data.vision?.alarm_active){
+        set("riskSource","明火检测"+(abnormal.length?"、环境监测":""));
+        set("riskReason",data.vision.state==="alarm"?data.vision.detail:"明火报警尚未确认恢复；需要连续有效的无火画面。");
+        set("riskAdvice","处置提示：立即核查现场火源与周边可燃物。");
+      }
     }
     set("simValue",numberText(sample.smoke_raw,"smoke_raw"));
     set("simState",sample.smoke_raw==null?"烟雾数据无效":(sources[sample.sources.smoke_raw]||"")+" · "+levels[sample.channels.smoke_raw.level]);
@@ -197,11 +208,12 @@
     updateSimulationControls();
   }
   function renderVisionStatus(vision) {
-    const pending=vision?.state==="pending";
-    $("visionStatus").dataset.state=pending?"pending":"unknown";
-    set("visionStateLabel",pending?"检测未启用":"检测状态未知");
-    set("visionStateDescription",pending?"尚未运行视觉检测，当前无法判断明火状态。":"暂时无法确认检测状态，请刷新重试。");
-    set("visionModelState",pending?"待部署":"未知");
+    $("visionStatus").dataset.state=vision?.alarm_active?"alarm":vision?.state||"unknown";
+    set("visionStateLabel",vision?.state==="pending"&&!vision.alarm_active?"检测未启用":visionLabel(vision));
+    set("visionStateDescription",vision?.alarm_active&&vision.state!=="alarm"?"报警尚未解除。需连续 15 秒有效无火画面；画面中断不会自动恢复。":vision?.detail||"暂时无法确认检测状态，请刷新重试。");
+    set("visionModelState",vision?.enabled?vision.model:vision?.state==="pending"?"待部署":"未知");
+    set("visionFps",vision?.fps==null?"—":Number(vision.fps).toFixed(1));
+    set("visionConfidence",vision?.confidence==null?"—":(vision.confidence*100).toFixed(0));
     set("visionUpdated",vision?"更新于 "+timeText(Date.now()/1000):"状态读取失败");
     $("visionUpdated").dataset.error=String(!vision);
   }
@@ -218,6 +230,8 @@
       when.dateTime=new Date(event.ts*1000).toISOString();
       when.append(node("small",new Date(event.ts*1000).toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit"})));
       copy.append(node("p",event.reason),node("span","#"+event.id+" · "+(event.is_demo?"模拟数据":"实际采集")+" · "+(modes[event.mode]||event.mode)));
+      const detail=node("button","查看详情 ›","vision-event-detail");detail.type="button";detail.addEventListener("click",()=>showDetails(event));copy.append(detail);
+      if(event.level==="red"&&event.vision){const thumb=visionImage(event,"vision-event-thumbnail");copy.prepend(thumb);}
       item.append(when,copy,node("span",event.level==="green"?"恢复记录":levels[event.level]||"状态未知","vision-event-level "+event.level));
       return item;
     }));
@@ -413,6 +427,12 @@
   }
   function showDetails(event){
     const body=$("eventDetails");body.replaceChildren();
+    if(event.vision){
+      const section=node("section","","detail-section vision-evidence");
+      section.append(node("h3","视觉检测记录"),node("p",(event.vision.model||"明火检测")+" · 置信度 "+(event.vision.confidence==null?"—":(event.vision.confidence*100).toFixed(0)+"%")));
+      if(event.level==="red")section.append(visionImage(event,"vision-event-image"));
+      body.append(section);
+    }
     if(page==="alerts"){
       const summary=node("section","","detail-summary"),heading=node("div","");
       heading.append(node("span",event.level==="green"?"恢复正常":levels[event.level],"event-level "+event.level),node("span","事件 #"+event.id,"event-id"));
@@ -450,6 +470,12 @@
     if(event.last_error)entries.push(["最近投递错误",event.last_error]);
     entries.forEach(([label,value])=>{const row=node("div","","event-detail");row.append(node("span",label),node("strong",value));body.append(row);});
     $("eventDialog").showModal();
+  }
+  function visionImage(event,cls){
+    const image=node("img","",cls);image.alt="事件 #"+event.id+" 的明火识别截图";
+    image.src="/api/vision/events/"+event.id+"/image";image.loading="lazy";
+    image.addEventListener("error",()=>image.replaceWith(node("span","截图未保存或已清理","muted")),{once:true});
+    return image;
   }
   function toast(event){
     [...$("toasts").children].filter(item=>item.dataset.device===event.device).forEach(item=>item.remove());

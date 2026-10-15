@@ -1,0 +1,14 @@
+{
+  "name": "YOLOv8n Fire / 320",
+  "file": "fire_yolov8n.onnx",
+  "repository": "fiacecson20/cctv-ai-fire-smoke",
+  "revision": "343990e42d99a5d27e9f35fc7c80880dc5f43f45",
+  "url": "https://huggingface.co/fiacecson20/cctv-ai-fire-smoke/resolve/343990e42d99a5d27e9f35fc7c80880dc5f43f45/best.onnx?download=true",
+  "sha256": "f2699b753e78be8d392bfa63e64bf102ea3ceb8b6086a59dfd8192b61a0c6fad",
+  "size": 12139911,
+  "input": [1, 3, 320, 320],
+  "output": [1, 6, 2100],
+  "classes": {"0": "fire", "1": "smoke"},
+  "alarm_class": 0,
+  "license_note": "Model card labels weights MIT; embedded ONNX metadata says AGPL-3.0. Preserve both notices; see THIRD_PARTY_NOTICES.md."
+}

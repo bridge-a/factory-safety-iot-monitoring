@@ -14,6 +14,15 @@
 
 Flask、paho-mqtt，以及可选开发依赖 pytest、Playwright 由包管理器安装；本仓库不包含其源码分发或虚拟环境，各依赖遵循其自身许可证。
 
+可选视觉依赖 NumPy、Pillow、[ONNX Runtime](https://onnxruntime.ai/docs/install/) 由 `requirements-vision.txt` 安装，本项目未复制其源代码。
+
+## 可选预训练火焰权重
+
+- 来源：[fiacecson20/cctv-ai-fire-smoke](https://huggingface.co/fiacecson20/cctv-ai-fire-smoke)，固定提交及 SHA-256 见 `models/fire-model.json`。
+- 模型卡将该权重标为 MIT，同时提醒 Ultralytics 基础模型涉及 AGPL；实际下载的 ONNX 元数据直接标注 [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html)。保留来源与两种标记，不将该冲突解释为统一的 MIT 授权。公开 Git 仓库不分发权重，启用脚本从原发布者下载。
+- 本地部署包可含同一份未修改、经校验的 ONNX 文件；模型元数据完整保留。本项目自编写预处理、输出解码和后处理，不复制 Ultralytics 实现，也不宣称自行训练该权重。
+- 训练来源按上游模型卡描述；其链接的完整训练报告和数据来源未能全部核实，实景效果仍需验证。详见 `models/README.md`。
+
 ## 固件依赖
 
 ESP32 Arduino core、Adafruit SHT31 / BusIO、BH1750、PubSubClient、Sensirion Core / I2C SCD4x 通过 Arduino 工具安装，不随仓库分发。版本与官方接口参考见 [固件说明](firmware/README.md)。新固件调用这些库的公开接口，没有复制其库源码或整份示例。

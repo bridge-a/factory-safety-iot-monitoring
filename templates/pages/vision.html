@@ -26,7 +26,7 @@
       <div><dt>摄像头状态</dt><dd id="visionCameraState">待确认</dd></div>
       <div><dt>检测模型</dt><dd id="visionModelState">待确认</dd></div>
     </dl>
-    <div class="vision-measures"><div><span>推理帧率</span><strong>— <small>FPS</small></strong></div><div><span>最高置信度</span><strong>— <small>%</small></strong></div></div>
+    <div class="vision-measures"><div><span>检测帧率</span><strong><span id="visionFps">—</span> <small>FPS</small></strong></div><div><span>最高置信度</span><strong><span id="visionConfidence">—</span> <small>%</small></strong></div></div>
     <div class="vision-scope"><strong>检测范围</strong><p>明火与烟雾独立判断。明火识别不直接判定吸烟行为或设备故障原因。</p></div>
   </aside>
 </div>
@@ -37,5 +37,5 @@
     <span class="vision-empty-icon">{{ icon('archive') }}</span><strong id="visionEventsStateTitle">正在读取明火事件</strong><p id="visionEventsStateDescription">请稍候</p>
   </div>
   <ol class="vision-event-list" id="visionEventList" hidden aria-label="最近明火事件"></ol>
-  <p class="vision-evidence-note" id="visionEvidenceNote" hidden>当前记录未包含现场截图，截图保存待视觉检测接入。</p>
+  <p class="vision-evidence-note" id="visionEvidenceNote" hidden>明火报警保存触发帧，最多保留最近 200 张截图；恢复记录不重复截图。</p>
 </section>
