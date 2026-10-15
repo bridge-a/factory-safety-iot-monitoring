@@ -49,7 +49,7 @@
   }
   function renderOverviewSound(sound){
     const ready=sound?.state==="ready",level=ready?sound.effective_level:"gray";
-    const label=ready?({green:"已接入 · 待命",yellow:"黄色预警",red:"红色报警",gray:"已接入 · 缺测"}[level]||"状态未知"):
+    const label=ready?({green:"已接入",yellow:"黄色预警",red:"红色报警",gray:"已接入 · 缺测"}[level]||"状态未知"):
       sound?.state==="offline"?"设备离线":sound?.state==="pending"?"等待上报":"状态未知";
     for(const id of ["overviewBuzzerState","overviewLedState"]){
       const el=$(id);if(!el)continue;
