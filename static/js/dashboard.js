@@ -47,8 +47,20 @@
     if($("visionIndicatorText").textContent!==label)set("visionIndicatorText",label);
     indicator.title=pending?"尚未运行视觉检测，点击查看检测状态":"暂时无法确认视觉检测状态，点击查看";
   }
+  function renderOverviewSound(sound){
+    const ready=sound?.state==="ready",level=ready?sound.effective_level:"gray";
+    const label=ready?({green:"待命",yellow:"预警模式",red:"报警模式",gray:"采样待恢复"}[level]||"状态未知"):
+      sound?.state==="offline"?"设备离线":sound?.state==="pending"?"待联调":"状态未知";
+    for(const id of ["overviewBuzzerState","overviewLedState"]){
+      const el=$(id);if(!el)continue;
+      el.textContent=label;el.classList.toggle("muted",!ready||level==="gray");
+      el.style.color=({green:"var(--teal)",yellow:"var(--yellow)",red:"var(--red)"})[level]||"var(--muted)";
+      el.title=ready?"设备上报的控制模式；实际声光动作需现场确认":"等待有效设备状态";
+    }
+  }
   function markOffline(message="后台连接中断") {
     connection(message,"red");
+    renderOverviewSound(null);set("linkageNote","后台连接中断，声光状态未知。");
     renderVisionIndicator(null);
     if(page==="vision"){renderVisionStatus(null);renderVisionEvents(null);}
     setHistoryAuto("error", "连接中断");
@@ -124,6 +136,7 @@
     const mailText=data.mail.config_error?"配置有误":data.mail.enabled?"已启用":"未启用";
     set("mailStatus",mailText);set("mailLinkState",mailText);
     set("popupState",notificationsOnline?"监听中":"读取异常");
+    renderOverviewSound(data.sound_light);
     set("linkageNote",data.mail.enabled&&!data.mail.allow_demo?"模拟事件的邮件通知已关闭。":data.sound_light?.state==="ready"?"声光状态由设备上报；后台持续监测。":"后台持续监测；等待声光固件上报。");
     set("riskLabel",levels[sample.level]);if($("riskLabel"))$("riskLabel").style.color=({red:"var(--red)",yellow:"var(--yellow)",green:"var(--teal)",gray:"var(--muted)"})[sample.level];
     set("envDevice",data.mode==="demo"?"采集节点：全模拟演示":sample.hardware_device || "采集节点：待接入");

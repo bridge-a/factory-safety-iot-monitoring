@@ -71,8 +71,8 @@
 <section class="panel linkage-panel">
   <div class="panel-heading"><h2>{{ icon('simulation') }}告警联动状态</h2><a href="/devices">设备详情 ›</a></div>
   <div class="linkage-grid">
-    <div>{{ icon('alerts') }}<span>蜂鸣器</span><strong class="muted">待接线联调</strong></div>
-    <div>{{ icon('light') }}<span>指示灯 LED</span><strong class="muted">待接线联调</strong></div>
+    <div>{{ icon('alerts') }}<span>蜂鸣器</span><strong id="overviewBuzzerState" class="muted">等待读取</strong></div>
+    <div>{{ icon('light') }}<span>指示灯 LED</span><strong id="overviewLedState" class="muted">等待读取</strong></div>
     <div>{{ icon('overview') }}<span>网页弹窗</span><strong id="popupState">等待连接</strong></div>
     <div>{{ icon('mail') }}<span>QQ 邮件</span><strong id="mailLinkState">未启用</strong></div>
   </div>
