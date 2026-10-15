@@ -24,6 +24,7 @@
 | `FACTORY_CAMERA_DEVICE` | `/dev/video0` | V4L2 设备，建议使用 by-id 固定链接 |
 | `FACTORY_CAMERA_WIDTH` / `FACTORY_CAMERA_HEIGHT` | `1280` / `720` | MJPEG 画面分辨率 |
 | `FACTORY_CAMERA_FPS` | `30` | 摄像头输入帧率，不是模型推理帧率 |
+| `FACTORY_CAMERA_ROTATION` | `0` | `180` 将倒装画面转正；需重启后台 |
 
 摄像头需系统 FFmpeg，无新增 Python 依赖；接入、配置脚本和验收见 [USB 摄像头说明](CAMERA_INTEGRATION.md)。
 

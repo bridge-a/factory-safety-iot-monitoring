@@ -19,6 +19,7 @@ class CameraSettings:
     width: int = 1280
     height: int = 720
     fps: int = 30
+    rotation: int = 0
     stale_seconds: float = 3.0
     startup_seconds: float = 12.0
     retry_seconds: float = 5.0
@@ -32,19 +33,31 @@ class CameraSettings:
                      device=os.environ.get("FACTORY_CAMERA_DEVICE", "/dev/video0"),
                      width=int(os.environ.get("FACTORY_CAMERA_WIDTH", "1280")),
                      height=int(os.environ.get("FACTORY_CAMERA_HEIGHT", "720")),
-                     fps=int(os.environ.get("FACTORY_CAMERA_FPS", "30")))
+                     fps=int(os.environ.get("FACTORY_CAMERA_FPS", "30")),
+                     rotation=int(os.environ.get("FACTORY_CAMERA_ROTATION", "0")))
         if not result.device.startswith("/dev/"):
             raise ValueError("摄像头路径应位于 /dev/ 下")
         if not (160 <= result.width <= 1920 and 120 <= result.height <= 1080 and 1 <= result.fps <= 60):
             raise ValueError("摄像头分辨率或帧率配置超出支持范围")
+        if result.rotation not in {0, 180}:
+            raise ValueError("摄像头旋转角度应为 0 或 180")
         return result
 
     def command(self, executable):
-        # MJPEG stays compressed: no PyTorch/OpenCV or per-viewer capture process.
-        return [executable, "-hide_banner", "-loglevel", "error", "-nostdin",
+        command = [executable, "-hide_banner", "-loglevel", "error", "-nostdin",
+                "-threads", "2", "-filter_threads", "1",
                 "-f", "v4l2", "-input_format", "mjpeg", "-video_size", f"{self.width}x{self.height}",
                 "-framerate", str(self.fps), "-i", self.device, "-map", "0:v:0",
-                "-an", "-c:v", "copy", "-bsf:v", "mjpeg2jpeg", "-f", "image2pipe", "pipe:1"]
+                "-an"]
+        if self.rotation == 180:
+            # Rotate the shared frame, including future inference input. Filtering
+            # needs re-encoding; cap output at preview speed to reduce Pi load.
+            command += ["-vf", f"fps={min(self.fps, 10)},hflip,vflip", "-c:v", "mjpeg",
+                        "-q:v", "4", "-threads", "2"]
+        else:
+            # Keep the original no-transcode path when no rotation is requested.
+            command += ["-c:v", "copy", "-bsf:v", "mjpeg2jpeg"]
+        return command + ["-f", "image2pipe", "pipe:1"]
 
 
 class JpegFrames:
@@ -118,6 +131,7 @@ class CameraCapture:
                     "detail": "画面中断，正在重新连接" if stale else self.detail,
                     "enabled": self.config.enabled, "device": self.config.device,
                     "resolution": f"{self.config.width} × {self.config.height}",
+                    "rotation": self.config.rotation,
                     "frame_age_seconds": round(age, 2) if age is not None else None,
                     "sequence": self.sequence, "preview_url": "/api/camera/frame"}
 

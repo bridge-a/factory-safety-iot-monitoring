@@ -26,7 +26,7 @@ def test_jpeg_chunks_and_memory_bound():
 
 def test_disabled_and_config_errors(monkeypatch):
     for name in ("FACTORY_CAMERA_ENABLED", "FACTORY_CAMERA_DEVICE", "FACTORY_CAMERA_WIDTH",
-                 "FACTORY_CAMERA_HEIGHT", "FACTORY_CAMERA_FPS"):
+                 "FACTORY_CAMERA_HEIGHT", "FACTORY_CAMERA_FPS", "FACTORY_CAMERA_ROTATION"):
         monkeypatch.delenv(name, raising=False)
     camera = CameraCapture()
     camera.start()
@@ -81,6 +81,26 @@ def test_reader_and_command_keep_mjpeg_compressed():
     assert command[command.index('-bsf:v') + 1] == 'mjpeg2jpeg'
     assert command[command.index('-video_size') + 1] == '1280x720'
     assert command[-1] == 'pipe:1'
+
+
+def test_upside_down_camera_encodes_shared_rotated_frames(monkeypatch):
+    monkeypatch.setenv('FACTORY_CAMERA_ROTATION', '180')
+    config = CameraSettings.from_env()
+    command = config.command('/usr/bin/ffmpeg')
+    assert command[command.index('-vf') + 1] == 'fps=10,hflip,vflip'
+    assert command[command.index('-c:v') + 1] == 'mjpeg'
+    assert 'copy' not in command and '-bsf:v' not in command
+    assert CameraCapture(config).snapshot()['rotation'] == 180
+    # A lower input rate must not be increased by the rotation path.
+    monkeypatch.setenv('FACTORY_CAMERA_FPS', '5')
+    command = CameraSettings.from_env().command('/usr/bin/ffmpeg')
+    assert command[command.index('-vf') + 1] == 'fps=5,hflip,vflip'
+    monkeypatch.setenv('FACTORY_CAMERA_ROTATION', '0')
+    command = CameraSettings.from_env().command('/usr/bin/ffmpeg')
+    assert '-vf' not in command and command[command.index('-c:v') + 1] == 'copy'
+    monkeypatch.setenv('FACTORY_CAMERA_ROTATION', '90')
+    with pytest.raises(ValueError):
+        CameraSettings.from_env()
 
 
 def test_worker_recovers_after_device_missing(monkeypatch):

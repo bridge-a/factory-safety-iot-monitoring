@@ -35,12 +35,23 @@ bash deploy/raspberry-pi/enable-camera.sh /dev/v4l/by-id/你的摄像头-video-i
 | `FACTORY_CAMERA_WIDTH` | `1280` | 采集宽度 |
 | `FACTORY_CAMERA_HEIGHT` | `720` | 采集高度 |
 | `FACTORY_CAMERA_FPS` | `30` | 摄像头支持的输入帧率；不是推理帧率 |
+| `FACTORY_CAMERA_ROTATION` | `0` | `180` 将倒置画面转正，`0` 保留原方向 |
 
 默认 720p 与 30 fps 已由本次摄像头格式列表确认。换摄像头时先用 `v4l2-ctl -d /dev/video0 --list-formats-ext` 核对；不支持 MJPEG 的设备不能直接沿用本配置。
 
-采集使用系统 FFmpeg，以 `-c:v copy` 保留压缩图像，使用 `mjpeg2jpeg` 补齐 JPEG 头部兼容性，不做模型推理或视频重编码。参数依据 [FFmpeg V4L2 文档](https://ffmpeg.org/ffmpeg-devices.html#video4linux2_002c-v4l2) 和 [mjpeg2jpeg 文档](https://ffmpeg.org/ffmpeg-bitstream-filters.html#mjpeg2jpeg)。FFmpeg 为系统依赖，本仓库不打包其二进制。
+采集使用系统 FFmpeg。默认不旋转时，以 `-c:v copy` 保留压缩图像，使用 `mjpeg2jpeg` 补齐 JPEG 头部兼容性。旋转 180° 时，按预览需要取最多 10 fps，通过 `hflip,vflip` 转正后编码为 JPEG；会增加 CPU 开销，实际性能需在树莓派验证。参数依据 [FFmpeg V4L2 文档](https://ffmpeg.org/ffmpeg-devices.html#video4linux2_002c-v4l2)、[mjpeg2jpeg 文档](https://ffmpeg.org/ffmpeg-bitstream-filters.html#mjpeg2jpeg) 和 [视频翻转滤镜文档](https://www.ffmpeg.org/ffmpeg-filters.html#vflip)。FFmpeg 为系统依赖，本仓库不打包其二进制。
 
 只缓存最新一帧，不录像、不积累图片文件。网页依次读取 `/api/camera/frame`，每次完成后等 100 ms 再读，最多约 10 帧/秒；慢网络会自动降低刷新速度，不叠加请求。隐藏标签页暂停请求，回来重新加载。采集帧率、网页刷新速度与未来模型推理 FPS 分别统计，当前推理栏仍为“—”。
+
+## 倒装摄像头转正
+
+更新 `camera_capture.py` 后，在树莓派本项目的 `deploy/raspberry-pi/runtime.env` 中添加或修改：
+
+```bash
+FACTORY_CAMERA_ROTATION=180
+```
+
+重启工厂后台后生效。总览、明火检测页和单帧接口共用旋转后的图像；后续模型应读取同一份图像。180° 旋转会同时改变上下和左右位置，文字仍保持正常方向，与仅上下镜像不同。需要恢复原方向时改为 `0` 并重启。
 
 ## 验收
 
