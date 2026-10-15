@@ -145,6 +145,16 @@ class AlertStore:
             event["mail_status"] = status
             return event
 
+    def active_level(self, devices):
+        """Committed per-channel severity, including the recovery hold and missing channels."""
+        devices = list(devices)
+        if not devices:
+            return "green"
+        with closing(self.connect()) as db:
+            rows = db.execute("SELECT level FROM device_state WHERE device IN (" +
+                              ",".join("?" for _ in devices) + ")", devices).fetchall()
+        return max((row["level"] for row in rows), key=lambda level: SEVERITY[level], default="green")
+
     @staticmethod
     def decode(row):
         event = json.loads(row["payload"])

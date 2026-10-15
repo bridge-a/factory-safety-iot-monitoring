@@ -24,6 +24,6 @@
 arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --build-path artifacts/alarm-check-build firmware/alarm_check
 ```
 
-2026-10-15 本机使用 Arduino CLI 1.1.1、esp32 core 3.0.7 编译通过：程序占 297841 字节，全局变量占 18520 字节。尚未上传此草图，LED 与蜂鸣器实际响应待用户实测。
+2026-10-15 本机使用 Arduino CLI 1.1.1、esp32 core 3.0.7 编译通过：程序占 297841 字节，全局变量占 18520 字节。编译检查时未上传；随后用户确认调整接线后 LED 和蜂鸣器均可同步开关。该结果不包含整合告警联动与负载电流验收。
 
 接口依据：[Arduino-ESP32 GPIO API](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/gpio.html)。

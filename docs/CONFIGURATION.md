@@ -17,6 +17,7 @@
 | `FACTORY_MQTT_PASSWORD` | 空 | 可选的 MQTT 密码，仅在本机设置 |
 | `FACTORY_ENV_TOPIC` | `factory/workshop1/env` | 接收采样 |
 | `FACTORY_ALERT_TOPIC` | `factory/workshop1/alert` | 告警发布主题 |
+| `FACTORY_ALARM_CONTROL_TOPIC` | `factory/workshop1/control/alarm` | 声光指令主题，与固件一致 |
 | `FACTORY_DATA_DIR` | 项目下的 `data/` | 数据库目录 |
 | `FACTORY_MAIL_CONFIG` | 项目下的 `mail.ini` | 本机邮件配置路径 |
 
@@ -39,15 +40,21 @@
 }
 ```
 
-- `smoke_raw` 为拟定的 12 位 ADC 相对读数，范围 0～4095，单位不是 ppm。
-- `smoke_valid` 与 `co2_valid` 必须明确为 `true` 或整数 `1` 才使用对应数值。MQ-2 预热期间发送 `smoke_valid=false`。
+- `smoke_raw` 为 12 位 ADC 相对读数，范围 0～4095，单位不是 ppm。
+- `smoke_valid` 与 `co2_valid` 必须明确为 `true` 或整数 `1` 才使用对应数值。当前固件的 `smoke_valid=true` 仅表示 ADC 可读，不自动判定 MQ-2 接线、预热或校准成功；基线和阈值仍待实测。
 - 温湿度可通过 `temp_c_valid=false`、`rh_valid=false` 或对应值为 `null` 表示无效。
 - 接收时间由后台生成；ESP32 的 `millis()` 不能当作 Unix 时间。
 - 后台忽略 retained 报文，避免旧值被当成刚采集的数据。
 - `live` 缺失烟雾字段时显示待接入；`hybrid` 使用明确标注的模拟烟雾。
 - 旧文物固件的 `museum/...` 主题不会被此项目接收，需要独立准备新固件。
 
-本阶段新固件位于 `firmware/factory_sensors/`。MQ-2 尚未接入，固件实际发送 `smoke_raw=null, smoke_valid=false`，由混合模式补入模拟烟雾；上面的完整报文只是未来接入字段示例。固件与原草图独立，尚未烧录。
+整合固件位于 `firmware/factory_sensors/`，已加入 MQ-2、LED 和蜂鸣器，见 [固件文档](../firmware/README.md)。整合版尚待上传与联网验收；旧三传感器报文仍可接收。
+
+新报文包含 `alarm_token`（16 位十六进制启动标识、连字符、8 位十六进制采样序号）和 `sound_light` 对象：`enabled`、`local_level`、`effective_level`、`remote_active`、`led_on`、`buzzer_on`、`command_token`。等级为 `green` / `yellow` / `red` / `gray`，开关为 JSON 布尔值；能力字段缺失或非法时不启用远程声光控制。
+
+后台向在线、新鲜且提供有效能力字段的节点发布 `<alarm_token>|<level>`（`green` / `yellow` / `red`），QoS 0、非 retained。等级采用当前模式经恢复确认后的告警状态。固件只接受匹配最近上报样本且样本年龄小于 6 秒的指令，10 秒无新指令则回到本地判断；最终输出取本地与平台的较高等级。标识用于拒绝旧指令，不代替代理认证。
+
+`demo` / `hybrid` 场景会驱动在线新固件的真实声光设备。页面显示固件回报的控制状态，不等于实物发声、发光已被检测。联调后切回 `live`。
 
 当前只管理一个区域、一个采集节点。多个节点需要增加设备白名单和独立区域状态。
 
@@ -60,7 +67,7 @@
 | CO₂ | ≥1000 ppm | ≥1500 ppm |
 | 烟雾相对值 | ≥1200 ADC | ≥2000 ADC |
 
-阈值集中在 `alert_rule.py`，用于课程演示，并非工业安全标准。MQ-2 到货后需根据预热基线、布置和实测结果调整。CO₂ 仅用于气体异常演示；光照不参与本版安全告警。
+后台阈值在 `alert_rule.py`，固件阈值在 `firmware/factory_sensors/alarm_logic.h`，修改时需同步并重新烧录。阈值用于课程演示，并非工业安全标准。MQ-2 需根据预热基线、布置和实测结果调整。CO₂ 仅用于气体异常演示；光照不参与本版安全告警。
 
 每个指标独立记录事件。首次异常立即记录，持续异常去重，等级升级立即通知；降级和恢复需连续 15 秒有效数据。缺失数据不能使已有报警恢复。不同运行模式的状态分别保存，避免切换模式产生虚假的恢复记录。
 

@@ -1,74 +1,95 @@
-# ESP32-S3 环境采集固件
+# ESP32-S3 完整采集与声光告警固件
 
-本阶段读取 SHT31、BH1750、SCD41，发送到工厂项目的 MQTT 主题。MQ-2、蜂鸣器和 LED 尚未接入本固件，烟雾由网页后台的 `hybrid` 模式模拟。原文物项目的草图保持原样。
+`factory_sensors/` 包含 SHT31、BH1750、SCD41、MQ-2 采集、本地阈值告警、Wi-Fi / MQTT 上报和平台声光控制。原文物项目独立保留。用户已提供前三类传感器的有效串口读数、MQ-2 ADC 读数，并确认 GPIO5 LED / GPIO6 蜂鸣器独立测试能同时开关；整合固件仍需上传和联网验收。
 
-MQ-2 已到货并接线后，可先运行独立的 [四传感器串口测试](sensor_check/README.md)，同时检查三路 I²C 传感器和 GPIO4 的 MQ-2 模拟读数。测试程序不联网；`factory_sensors/` 的正式 MQTT 固件暂未加入 MQ-2，等待实测确认后再集成。
+## 打开、配置与上传
 
-LED 与有源蜂鸣器可使用独立的 [声光同步测试](alarm_check/README.md)：GPIO5 与 GPIO6 同时开启 2 秒、关闭 2 秒并循环。该草图只验证输出时序，不代表负载电气条件或平台告警联动已经通过验收。
+用 Arduino IDE **直接打开** `factory_sensors/factory_sensors.ino`，保留同目录的 `alarm_logic.h` 和 `config.example.h`。不要只把 `.ino` 复制到另一个缺少头文件的草图中。
 
-## 接线与设备
+复制 `config.example.h` 为同目录的 `config.local.h`，填写 Wi-Fi 名称、密码、树莓派局域网 IPv4 地址：
 
-沿用已找到的旧项目源码中的 I²C 接线；烧录前仍需核对实物板型与接线。
-
-| 项目 | 设置 |
-| --- | --- |
-| 控制器 | ESP32-S3；编译基线为 Arduino 的 ESP32S3 Dev Module |
-| SDA / SCL | GPIO 8 / GPIO 9，100 kHz |
-| SHT31 | `0x44`，温度与相对湿度 |
-| BH1750 | `0x23`，光照 |
-| SCD41 | `0x62`，CO₂；周期测量 |
-| 串口 | 115200 |
-| MQTT 主题 | `factory/workshop1/env`，非 retained |
-| 采样与上报 | 每 2 秒采样；联网时发送最新一份 |
-
-这张表不替代各模块的供电规格。此次不变动原有传感器供电，也不设置 MQ-2 或声光器件引脚。
-
-## 配置与编译
-
-1. 打开 `factory_sensors/factory_sensors.ino`。
-2. 复制同目录的 `config.example.h` 为 `config.local.h`，本地填写 Wi-Fi 名称、密码和树莓派局域网 IPv4 地址。需要时填写 MQTT 账号；端口与后台一致。
-3. 板型选择 ESP32S3 Dev Module。Flash、PSRAM、USB CDC、上传方式和串口需按具体开发板确定，不能把通用编译参数直接当成实物设置。
-4. 先验证编译，开发板接入并确认后再上传。上传到同一块 ESP32 会替换板上程序，但不会修改旧项目源码；需要回到旧演示时重新烧录旧草图。
-
-没有 `config.local.h` 时，程序使用空配置，可以编译并输出串口采样，网络功能关闭。`config.local.h`、编译产物、Wi-Fi 密码均不提交到 GitHub。
-
-使用本机已有依赖作为编译基线，不升级旧项目使用的库：
-
-| 依赖 | 本机版本 |
-| --- | --- |
-| Arduino CLI | 1.1.1 |
-| esp32 Arduino core | 3.0.7 |
-| Adafruit SHT31 Library | 2.2.2 |
-| Adafruit BusIO | 1.17.4 |
-| BH1750 | 1.3.0 |
-| PubSubClient | 2.8 |
-| Sensirion I2C SCD4x | 1.1.0 |
-| Sensirion Core | 0.7.3 |
-
-若 `arduino-cli` 已在 PATH 中，可从项目根目录执行：
-
-```powershell
-arduino-cli compile --fqbn esp32:esp32:esp32s3 --build-path artifacts/firmware-build firmware/factory_sensors
+```cpp
+constexpr char WIFI_SSID[] = "你的2.4GHz Wi-Fi名称";
+constexpr char WIFI_PASSWORD[] = "你的Wi-Fi密码";
+constexpr char MQTT_HOST[] = "树莓派的局域网IPv4地址";
+constexpr uint16_t MQTT_PORT = 1883;
 ```
 
-命令只编译，不烧录。实际验证记录见 [硬件接入准备](../docs/HARDWARE_INTEGRATION.md)。
+沿用树莓派已有 Mosquitto。ESP32 的地址不能填 `localhost`；同机运行的树莓派后台可使用 `127.0.0.1`。代理启用认证时填写 MQTT 用户名和密码。真实配置已被 Git 忽略；空配置仍可编译、串口采样和本地告警，网络关闭。
 
-## 有效性与重连
+选择 ESP32S3 Dev Module，串口 115200；端口、Flash / PSRAM、USB CDC 沿用已经成功上传测试程序的设置。本次编译参数为 `esp32:esp32:esp32s3:CDCOnBoot=cdc`。上传替换板上测试程序，不改动旧项目文件。
 
-- SHT31 输出原始物理量，不进行湿度减半。读取失败、非有限数值或越界值用 `null` 和 `*_valid=false` 表示。
-- SCD41 的周期测量约 5 秒产生新值。首次有效读数之前 CO₂ 为 `null`；最近成功读数最多保留 15 秒，通信错误或无效测量立即失效。连续收不到新测量时会重新初始化，不能把旧 CO₂ 一直当成新值上报。
-- BH1750 读取失败时输出 `lux=null`。失败传感器每 30 秒尝试重新初始化。
-- 网络使用独立 FreeRTOS 任务。MQTT 连接失败不会让采样任务等待；连接尝试设置超时，Wi-Fi / MQTT 分别间隔重试。
-- 队列只保留最新一份样本；超过 6 秒的待发送包丢弃。断网恢复后不回放历史样本。
-- `uptime_ms` 只表示开机时间，后台使用接收时间入库。所有毫秒间隔使用无符号差值，兼容计时器回绕。
-- 本阶段始终发送 `smoke_raw=null, smoke_valid=false`；模拟烟雾只在后台生成，并保留来源标签。
+## 接线保持不变
 
-这里描述的是代码行为。传感器恢复、网络重连和长时间运行仍需实机验收。
+| 器件 | ESP32-S3 接线 / 设置 |
+| --- | --- |
+| SHT31 / BH1750 / SCD41 | SDA GPIO8，SCL GPIO9，100 kHz；地址 `0x44` / `0x23` / `0x62` |
+| MQ-2 | VCC 接 5V，共地；AO 经原有 10kΩ / 10kΩ 分压接 GPIO4；DO 不接 |
+| LED | GPIO5 经限流电阻接正极，负极接 GND；高电平亮 |
+| 有源蜂鸣器 | GPIO6 高电平响、低电平停；沿用用户已测试接法 |
 
-## 接口依据
+MQ-2 的 AO 不能直接把 5V 电平送入 GPIO。TMB12A05 直接接 GPIO6 的开关动作已由用户确认，但负载电流和长期可靠性未测；长期运行应补驱动电路。
 
-- [Sensirion SCD4x 官方 Arduino 示例](https://github.com/Sensirion/arduino-i2c-scd4x/blob/master/examples/exampleUsage/exampleUsage.ino)：测量流程与库接口。
-- [PubSubClient API](https://pubsubclient.knolleary.net/api)：缓冲区、连接超时与发布接口。
-- [Arduino CLI compile](https://docs.arduino.cc/arduino-cli/commands-reference/arduino-cli_compile)：独立编译命令。
+## 采集与重连
 
-这些库由 Arduino 库管理器安装；仓库不附带其源码或工具链。
+- 每 2 秒采样上报，温湿度不缩放；光照作为辅助信息，不参与告警。
+- SCD41 约 5 秒产生新值；首次未就绪、通信失败或超过 15 秒无有效测量时上报 `null`。失败器件每 30 秒尝试初始化。
+- MQ-2 每轮取 32 次 ADC 平均值，并上报极值。`smoke_raw` 是 0～4095 相对 ADC 值，**不是 ppm**；`smoke_valid=true` 仅表示获得 ADC 样本，不能证明连通、预热或烟雾响应合格。
+- 网络独立运行，Wi-Fi / MQTT 自动重连；断网不停止本地判断。队列只保留最新样本，不补发超过 6 秒的旧包。
+- 声光用 `millis()` 切换，不使用两秒阻塞循环；传感器驱动初始化可能带来短暂时序抖动。
+
+## 告警规则
+
+| 指标 | 黄色预警 | 红色报警 |
+| --- | --- | --- |
+| 温度 | ≥35 °C | ≥45 °C |
+| 相对湿度 | ≥75 %RH | ≥85 %RH |
+| CO₂ | ≥1000 ppm | ≥1500 ppm |
+| MQ-2 相对值 | ≥1200 ADC | ≥2000 ADC |
+
+课程演示阈值尚需实测调整。后台 `alert_rule.py` 与固件 `alarm_logic.h` 应同步修改，测试检查两端阈值一致。
+
+| 状态 | LED | 蜂鸣器 |
+| --- | --- | --- |
+| 全部有效且正常 | 熄灭 | 停止 |
+| 黄色预警 | 亮 1 秒 / 灭 1 秒 | 每 4 秒响 0.2 秒 |
+| 红色报警 | 亮 0.5 秒 / 灭 0.5 秒 | 同步响 0.5 秒 / 停 0.5 秒 |
+| 核心读数缺失且无既有报警 | 每 2 秒短闪 0.1 秒 | 停止 |
+
+升级立即生效，降级或恢复需连续 15 秒有效读数。异常指标读数缺失时保留其报警状态，不能用缺失解除告警。
+
+## 网页声光联动
+
+- 采样：`factory/workshop1/env`，非 retained JSON。
+- 指令：`factory/workshop1/control/alarm`，由后台发布，非 retained。
+- 事件：`factory/workshop1/alert`，与控制主题分开。
+
+后台回送最新样本的 `alarm_token` 和等级，格式 `<token>|red`、`<token>|yellow` 或 `<token>|green`。ESP32 仅接受匹配最近发布样本、样本年龄小于 6 秒的指令。启动标识与序号用于拒绝旧指令，不代替 MQTT 认证。平台指令 10 秒未更新即失效。
+
+最终输出取**本地与平台的较高等级**，平台正常不会压掉本地异常。`sound_light` 上报控制等级、GPIO 电平和最近接受的指令标识，设备页和联调页显示固件反馈；这不是实际发光、发声的电气检测。
+
+**新固件在线时，网页 `demo` / `hybrid` 的预警、报警场景会驱动真实声光，并生成事件。** `live` 使用四项真实数据，禁用模拟注入。恢复测试需等待 15 秒；本地 CO₂ 等仍超标时，声光不会被平台强制关闭。
+
+## 首次整体验收
+
+1. 串口 115200：出现启动信息、每 2 秒 JSON，SCD41 从初始空值变为有效读数。
+2. 网络：出现 `Wi-Fi connected`、`MQTT connected; alarm control subscribed`、持续 `PUB OK`。
+3. 树莓派按 [部署与联调步骤](../docs/HARDWARE_INTEGRATION.md) 启动新版后台，`live` 下检查真实采集、历史及声光状态。
+4. 临时切 `hybrid`，依次应用正常采样、黄色预警、红色报警、恢复测试，观察声光。结束后切回 `live`。
+5. 断开 ESP32 网络，采样应继续；平台指令约 10 秒后失效，本地真实异常仍应报警。不要停止与原项目共用的 Mosquitto 做测试。
+
+QQ 邮件默认未启用，另按本地配置联调。编译通过不等于硬件、网络与邮件验收。
+
+## 依赖与复现
+
+本机依赖：Arduino CLI 1.1.1、esp32 core 3.0.7、Adafruit SHT31 2.2.2、Adafruit BusIO 1.17.4、BH1750 1.3.0、PubSubClient 2.8、Sensirion I2C SCD4x 1.1.0、Sensirion Core 0.7.3。无需新增 ArduinoJson 库。
+
+```powershell
+arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --build-path artifacts/integrated-firmware-build firmware/factory_sensors
+g++ -std=c++11 -Wall -Wextra -pedantic tests/firmware_alarm_check.cpp -o artifacts/firmware-alarm-check.exe
+.\artifacts\firmware-alarm-check.exe
+```
+
+编译产物不提交。独立诊断：[传感器测试](sensor_check/README.md)、[声光开关测试](alarm_check/README.md)。验证范围见 [验证记录](../docs/VALIDATION.md)。
+
+接口依据：[Espressif ADC](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/adc.html)、[Sensirion 示例](https://github.com/Sensirion/arduino-i2c-scd4x/blob/master/examples/exampleUsage/exampleUsage.ino)、[PubSubClient API](https://pubsubclient.knolleary.net/api)。

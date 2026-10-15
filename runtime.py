@@ -118,8 +118,26 @@ class MonitorRuntime:
                                         qos=1, retain=False)
             self.alerts.heartbeat(self.mail.enabled, self.mqtt_connected)
             self.sample = sample
+            # Commands echo a fresh sample token; no retained/offline command queue.
+            # The firmware keeps its own local alarm active even if this asks for green.
+            if fresh and self.client and self.mqtt_connected and self.received.get("alarm_token") and self.received.get("sound_light"):
+                level = self.alerts.active_level(f"workshop1:{self.mode}:{key}" for key in METRICS)
+                self.client.publish(settings.ALARM_CONTROL_TOPIC,
+                                    f"{self.received['alarm_token']}|{level}", qos=0, retain=False)
             self.error = None
             return copy.deepcopy(sample)
+
+    def sound_light_status(self):
+        telemetry = self.received.get("sound_light")
+        if not telemetry:
+            return {"state": "pending", "detail": "等待声光固件上报"}
+        if (not self.mqtt_connected or self.received_at is None or
+                not 0 <= self.clock() - self.received_at < settings.OFFLINE_SECONDS):
+            return {"state": "offline", "detail": "设备离线，声光状态未知"}
+        level = telemetry["effective_level"]
+        label = {"green": "待命", "yellow": "黄色预警", "red": "红色报警", "gray": "采样待恢复"}[level]
+        route = "本地＋平台" if telemetry["remote_active"] else "本地控制"
+        return dict(telemetry, state="ready", detail=f"{label} · {route}")
 
     def snapshot(self):
         with self.lock:
@@ -133,7 +151,7 @@ class MonitorRuntime:
                     "mail": {"enabled": self.mail.enabled, "allow_demo": self.mail.allow_demo,
                              "config_error": self.mail_error},
                     "vision": {"state": "pending", "detail": "明火模型待接入；当前未运行视觉检测"},
-                    "sound_light": {"state": "pending", "detail": "蜂鸣器与 LED 待接线联调"},
+                    "sound_light": self.sound_light_status(),
                     "error": self.error}
 
     def _sample_loop(self):

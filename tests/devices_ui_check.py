@@ -67,6 +67,13 @@ def main():
             checks.append('five widths; six configuration rows; simulated readings never mark the actual node online')
 
             page.set_viewport_size({'width':1366,'height':768})
+            fixture['sound_light'] = {'state':'ready','detail':'黄色预警 · 本地控制'}
+            page.locator('#refreshDevices').click()
+            expect(page.locator('#deviceSoundState')).to_have_text('黄色预警 · 本地控制')
+            fixture['sound_light'] = {'state':'offline','detail':'设备离线，声光状态未知'}
+            page.locator('#refreshDevices').click()
+            expect(page.locator('#deviceSoundState')).to_have_text('设备离线')
+            checks.append('device-reported actuator state and offline state replace the old placeholder')
             fixture = copy.deepcopy(initial)
             fixture['mode'] = 'hybrid'
             fixture['mqtt'].update(connected=True,detail='已连接',topic='factory/workshop1/env')

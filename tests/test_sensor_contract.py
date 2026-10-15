@@ -116,3 +116,109 @@ def test_optional_broker_credentials_are_not_exposed_in_status(receiver, monkeyp
     assert configured == [("test-node", "test-only-secret")]
     payload = create_app(runtime).test_client().get("/api/status").text
     assert "test-node" not in payload and "test-only-secret" not in payload
+
+
+TOKEN = "1234567890abcdef-00000001"
+
+
+def integrated_packet(**changes):
+    return sensor_packet(smoke_raw=220, smoke_valid=True, alarm_token=TOKEN,
+                         sound_light={"enabled": True, "local_level": "green", "effective_level": "green",
+                                      "remote_active": False, "led_on": False, "buzzer_on": False,
+                                      "command_token": ""}, **changes)
+
+
+def capture_commands(runtime, monkeypatch):
+    published = []
+    monkeypatch.setattr(runtime.client, "publish", lambda topic, payload, **kwargs:
+                        published.append((topic, payload, kwargs)))
+    return published
+
+
+def test_integrated_live_readings_and_firmware_status_reach_web(receiver):
+    runtime, now = receiver
+    receive(runtime, integrated_packet())
+    runtime.configure(mode="live")
+    result = create_app(runtime).test_client().get("/api/status").json
+    assert result["sample"]["smoke_raw"] == 220
+    assert all(source == "mqtt" for source in result["sample"]["sources"].values())
+    assert result["sound_light"]["state"] == "ready"
+    assert result["sound_light"]["detail"] == "待命 · 本地控制"
+    runtime.mqtt_connected = False
+    assert runtime.snapshot()["sound_light"]["state"] == "offline"
+    runtime.mqtt_connected = True
+    now[0] += 21
+    assert runtime.snapshot()["sound_light"]["state"] == "offline"
+
+
+def test_simulation_commands_hold_until_continuous_recovery(receiver, monkeypatch):
+    runtime, now = receiver
+    sent = capture_commands(runtime, monkeypatch)
+    receive(runtime, integrated_packet())
+    runtime.configure(scenario="alarm")
+    assert sent[-1] == (settings.ALARM_CONTROL_TOPIC, TOKEN + "|red", {"qos": 0, "retain": False})
+    runtime.configure(scenario="recovery")
+    assert sent[-1][1].endswith("|red")
+    for _ in range(8):
+        now[0] += 2
+        receive(runtime, integrated_packet())
+        runtime.tick()
+    assert sent[-1][1].endswith("|green")
+    assert runtime.alerts.list_events()["events"][0]["level"] == "green"
+
+
+def test_missing_channel_does_not_send_false_remote_recovery(receiver, monkeypatch):
+    runtime, now = receiver
+    sent = capture_commands(runtime, monkeypatch)
+    receive(runtime, integrated_packet(co2_ppm=1700))
+    runtime.configure(mode="live")
+    for _ in range(12):
+        now[0] += 2
+        receive(runtime, integrated_packet(co2_ppm=None, co2_valid=False))
+        runtime.tick()
+    assert sent[-1][1].endswith("|red")
+
+
+def test_no_command_to_legacy_invalid_retained_or_offline_node(receiver, monkeypatch):
+    runtime, now = receiver
+    sent = capture_commands(runtime, monkeypatch)
+    receive(runtime, integrated_packet(), retained=True)
+    runtime.configure(scenario="alarm")
+    assert not [item for item in sent if item[0] == settings.ALARM_CONTROL_TOPIC]
+    for packet in (sensor_packet(), dict(integrated_packet(), alarm_token="bad|red"),
+                   dict(integrated_packet(), sound_light={"enabled": "true"})):
+        receive(runtime, packet)
+        runtime.tick()
+    assert not [item for item in sent if item[0] == settings.ALARM_CONTROL_TOPIC]
+    receive(runtime, integrated_packet())
+    runtime.tick()
+    count = len(sent)
+    now[0] += 21
+    runtime.tick()
+    assert len(sent) == count
+    receive(runtime, integrated_packet())
+    runtime.mqtt_connected = False
+    runtime.tick()
+    assert len(sent) == count
+
+
+def test_reported_local_alarm_is_not_overwritten_by_normal_dashboard(receiver):
+    runtime, _ = receiver
+    packet = integrated_packet()
+    packet["sound_light"].update(local_level="red", effective_level="red", remote_active=True,
+                                command_token=TOKEN, led_on=True, buzzer_on=True)
+    receive(runtime, packet)
+    runtime.configure(scenario="normal")
+    state = runtime.snapshot()["sound_light"]
+    assert state["effective_level"] == "red" and state["remote_active"]
+    assert state["command_token"] == TOKEN
+
+
+def test_firmware_and_backend_thresholds_match():
+    import re
+    from pathlib import Path
+    from alert_rule import METRICS
+    header = (Path(__file__).parents[1] / "firmware/factory_sensors/alarm_logic.h").read_text()
+    table = re.search(r"RULES\[\]\s*=\s*\{(.*?)\};", header, re.S).group(1)
+    rows = [tuple(map(float, row.split(","))) for row in re.findall(r"\{([^{}]+)\}", table)]
+    assert rows == [(*rule["range"], rule["yellow"], rule["red"]) for rule in METRICS.values()]

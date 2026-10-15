@@ -71,6 +71,14 @@ def main():
             checks.append('five widths; shared shell; visible desktop controls and feedback; valid smoke scale')
 
             page.set_viewport_size({'width':1366,'height':768})
+            fixture['sound_light'] = {'state':'ready','detail':'红色报警 · 本地＋平台'}
+            page.locator('#refreshSimulation').click()
+            expect(page.locator('#simSoundState')).to_have_text('红色报警 · 本地＋平台')
+            fixture['sound_light'] = {'state':'offline','detail':'设备离线，声光状态未知'}
+            page.locator('#refreshSimulation').click()
+            expect(page.locator('#simSoundState')).to_have_text('设备离线')
+            fixture['sound_light'] = {'state':'pending'}
+            checks.append('reported actuator state is shown; stale actuator data becomes offline')
             for scenario,level in [('warning','yellow'),('alarm','red'),('recovery','green'),('disconnected','gray'),('rising','green'),('normal','green')]:
                 button = page.locator(f'[data-scenario="{scenario}"]')
                 expect(button).to_be_enabled()

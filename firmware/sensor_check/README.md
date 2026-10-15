@@ -54,4 +54,4 @@ arduino-cli compile --fqbn esp32:esp32:esp32s3:CDCOnBoot=cdc --build-path artifa
 
 命令只编译，不上传。四个传感器的实际读数需要在烧录后查看；编译通过不能代替实物测量。
 
-2026-10-15 本机验证：Arduino CLI 1.1.1、esp32 core 3.0.7，以上 FQBN 编译通过。程序占 340713 字节，全局变量占 19264 字节。仅完成编译和 USB 串口识别，未上传测试程序、未采集实际读数。
+2026-10-15 本机编译：Arduino CLI 1.1.1、esp32 core 3.0.7，以上 FQBN 编译通过。程序占 340713 字节，全局变量占 19264 字节；当时未上传。随后用户提供成功上传日志及 SHT31 / BH1750 / SCD41 有效读数、MQ-2 ADC 值。MQ-2 烟雾响应与基线仍待验证，详见 [验证记录](../../docs/VALIDATION.md)。联网与声光整合版见 [固件说明](../README.md)。

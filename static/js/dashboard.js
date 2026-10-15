@@ -124,7 +124,7 @@
     const mailText=data.mail.config_error?"配置有误":data.mail.enabled?"已启用":"未启用";
     set("mailStatus",mailText);set("mailLinkState",mailText);
     set("popupState",notificationsOnline?"监听中":"读取异常");
-    set("linkageNote",data.mail.enabled&&!data.mail.allow_demo?"模拟事件的邮件通知已关闭。":"后台持续监测；声光设备待实机联调。");
+    set("linkageNote",data.mail.enabled&&!data.mail.allow_demo?"模拟事件的邮件通知已关闭。":data.sound_light?.state==="ready"?"声光状态由设备上报；后台持续监测。":"后台持续监测；等待声光固件上报。");
     set("riskLabel",levels[sample.level]);if($("riskLabel"))$("riskLabel").style.color=({red:"var(--red)",yellow:"var(--yellow)",green:"var(--teal)",gray:"var(--muted)"})[sample.level];
     set("envDevice",data.mode==="demo"?"采集节点：全模拟演示":sample.hardware_device || "采集节点：待接入");
     document.querySelectorAll("[data-metric]").forEach(card=>{
@@ -169,7 +169,8 @@
     $("popupState").dataset.state=notificationsOnline?"ready":"error";
     $("mailLinkState").dataset.state=data.mail.config_error?"error":data.mail.enabled?"ready":"unknown";
     set("simMailNote",data.mail.config_error?"邮件配置有误，请在主机上检查。":!data.mail.enabled?"邮件未启用；网页弹窗可独立验证。":data.mode!=="live"&&!data.mail.allow_demo?"当前不发送模拟事件邮件。":"邮件发送结果请在告警详情中查看。");
-    set("simSoundState",data.sound_light?.state==="pending"?"待联调":"状态未知");
+    set("simSoundState",data.sound_light?.state==="ready"?data.sound_light.detail:data.sound_light?.state==="offline"?"设备离线":data.sound_light?.state==="pending"?"待联调":"状态未知");
+    $("simSoundState").dataset.state=data.sound_light?.state==="ready"?"ready":"unknown";
     updateSimulationControls();
   }
   function renderVisionStatus(vision) {
@@ -254,7 +255,7 @@
       sourceEl.textContent=value==null?(source==="simulation"?"模拟 · 无数据":"无有效数据"):sources[source]||"来源未知";
     });
     setDeviceState("deviceVisionState",data.vision?.state==="pending"?"待接入":"状态未知",data.vision?.state==="pending"?"pending":"unknown");
-    setDeviceState("deviceSoundState",data.sound_light?.state==="pending"?"待联调":"状态未知",data.sound_light?.state==="pending"?"pending":"unknown");
+    setDeviceState("deviceSoundState",data.sound_light?.state==="ready"?data.sound_light.detail:data.sound_light?.state==="offline"?"设备离线":data.sound_light?.state==="pending"?"待联调":"状态未知",data.sound_light?.state==="ready"?"mqtt":data.sound_light?.state==="pending"?"pending":"unknown");
     set("deviceDataNote",data.mode==="demo"?"模拟读数仅用于功能演示与联调，不代表硬件已连接。":data.mode==="hybrid"?"烟雾使用模拟读数，其余指标以有效的实际上报为准。":"当前显示实际采集读数；缺失或过期值保留为空。");
   }
   function renderDeviceQueue(data){

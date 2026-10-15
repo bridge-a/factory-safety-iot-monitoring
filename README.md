@@ -4,7 +4,7 @@
 
 **当前版本：v0.1.0 — 监控软件与模拟验证基线。** 已完成看板、数据存储和告警流程的软件实现；真实硬件、QQ 邮件接收与明火视觉检测仍需联调。完整进度见 [任务书核对](REQUIREMENTS_CHECK.md) 和 [开发计划](DEVELOPMENT_PLAN.md)。
 
-`main` 分支已完成本轮六页界面整理，开始准备树莓派独立部署与现有传感器接入，尚未另打发布标签。新增 [ESP32 固件](firmware/README.md) 和 [第一阶段部署与验收步骤](docs/HARDWARE_INTEGRATION.md)；代码准备不代表已烧录或实机联调通过。页面改动见 [历史页](docs/HISTORY_UI.md)、[明火页](docs/VISION_UI.md)、[设备页](docs/DEVICES_UI.md) 与 [模拟联调页](docs/SIMULATION_UI.md)。
+`main` 分支已完成六页界面整理，以及四传感器采集、本地声光与 MQTT 平台控制的 [ESP32 整合固件](firmware/README.md)，尚未另打发布标签。用户已完成分项串口采样和声光开关测试；整合固件上传、树莓派部署与完整联调仍待完成，见 [部署与验收步骤](docs/HARDWARE_INTEGRATION.md)。页面改动见 [历史页](docs/HISTORY_UI.md)、[明火页](docs/VISION_UI.md)、[设备页](docs/DEVICES_UI.md) 与 [模拟联调页](docs/SIMULATION_UI.md)。
 
 ## 界面预览
 
@@ -59,7 +59,7 @@
 | 通知 | 网页弹窗；QQ SMTP 持久化队列与失败重试 | 网页已验证；邮件真实接收待验证 |
 | 模拟与联调 | 三种数据模式、六种烟雾场景、读数与联动状态；操作反馈、失败后核对模式、断线恢复 | 页面已整理；软件与模拟流程已验证 |
 | 设备接入 | 独立 ESP32 固件、MQTT 校验与可选登录、树莓派启动脚本；器件清单与通信状态 | 代码已准备；烧录、代理和硬件联调待完成 |
-| 声光报警 | 蜂鸣器与 LED 联动 | 待接入 |
+| 声光报警 | 本地阈值判断、平台指令、设备反馈；断网时保留本地告警 | 独立开关测试成功；完整联动待实测 |
 | 明火检测 | 单摄像头画面预留区、检测状态、按视觉来源读取已有事件 | 页面已整理；摄像头、模型与截图待接入，为额外功能 |
 
 无效、缺失或过期的数据不会被当成零值或正常状态；未接入的摄像头和执行器明确显示待接入。关闭网页后，采样与告警仍由 Python 后台运行；关闭后台进程则停止监测。
@@ -77,7 +77,9 @@ flowchart LR
     Runtime --> DB[(SQLite)]
     Runtime --> Web[Flask 监控看板]
     Runtime --> Mail[QQ SMTP 邮件队列]
-    ESP -. 待接入 .-> Alarm[蜂鸣器 / LED]
+    Runtime -->|声光指令| Broker
+    Broker -->|指令订阅| ESP
+    ESP --> Alarm[蜂鸣器 / LED]
     Camera[USB 摄像头] -. 待接入 .-> Vision[明火检测]
     Vision -. 待接入 .-> Runtime
 ```
@@ -89,17 +91,17 @@ flowchart LR
 | 硬件 | 用途 | 本项目接入进度 |
 | --- | --- | --- |
 | Raspberry Pi 5 Model B，8GB | 后台、数据库、MQTT 代理与后续视觉推理 | 待部署验证 |
-| ESP32-S3 开发板 | 读取传感器、上报数据和本地声光报警 | 现有环境传感器固件已准备，未烧录；声光待接入 |
-| SHT31 | 温度与相对湿度 | 已有器件，待新项目联调 |
-| Sensirion SCD41 | CO₂ 气体异常演示 | 已有器件，待新项目联调 |
-| BH1750 | 辅助光照读数 | 已有器件，待新项目联调 |
-| MQ-2 模块 | 烟雾相对变化与阈值告警 | 已到货，用户已报告接线；串口读数待验证，网页仍使用模拟值 |
-| 蜂鸣器、LED | 本地声光报警 | 已有器件，待接线与驱动 |
+| ESP32-S3 开发板 | 读取传感器、上报数据和本地声光报警 | 整合固件编译通过，待上传与联网验收 |
+| SHT31 | 温度与相对湿度 | 串口有效读数已见，MQTT 待联调 |
+| Sensirion SCD41 | CO₂ 气体异常演示 | 已有有效串口读数，MQTT 待联调 |
+| BH1750 | 辅助光照读数 | 已有有效串口读数，MQTT 待联调 |
+| MQ-2 模块 | 烟雾相对变化与阈值告警 | 已有 ADC 读数；烟雾响应与阈值待验证，整合联调待完成 |
+| 蜂鸣器、LED | 本地声光报警 | 用户确认 GPIO5 / GPIO6 同步开关成功，告警联动待验证 |
 | USB 摄像头 | 后续明火视觉检测 | 已有器件，模型尚未接入 |
 
 CO₂ 用于气体异常的替代演示，不代表测量有毒气体。MQ-2 采用 ADC 相对读数，不能直接标为烟雾 ppm；演示阈值需在实测后调整。这是课程原型，不能作为经过认证的工业安全系统。
 
-2026-10-15 新增 [四传感器串口测试程序](firmware/sensor_check/README.md)，用于 MQ-2 接线后的独立读数检查，无需启动树莓派或填写网络配置；尚未据此完成硬件验收。
+2026-10-15 已准备 [完整固件与上传说明](firmware/README.md)。[传感器诊断](firmware/sensor_check/README.md) 和 [声光开关测试](firmware/alarm_check/README.md) 保留用于分项排查；分项动作成功不等于完整网络联调通过。
 
 ## 快速开始
 
@@ -132,17 +134,17 @@ FACTORY_MODE=demo .venv/bin/python dashboard.py
 
 只运行一个 `dashboard.py` 实例，后台已统一管理 MQTT、采样、存储和通知。不要另起 `mqtt_ingest.py` 或 `alert_rule.py`。Windows 虚拟环境不能复制到树莓派使用。
 
-需要保留现有文物系统并接入真实传感器时，按 [树莓派独立部署步骤](docs/HARDWARE_INTEGRATION.md) 使用 `deploy/raspberry-pi/` 中的准备、启动与服务安装脚本。首阶段选择 `hybrid`，烟雾继续模拟。
+需要保留现有文物系统并接入真实传感器时，按 [树莓派独立部署步骤](docs/HARDWARE_INTEGRATION.md) 使用 `deploy/raspberry-pi/` 中的准备、启动与服务安装脚本。完整采集选择 `live`；需要模拟烟雾测试声光时临时切 `hybrid`。
 
 ## 运行模式与配置
 
 | 模式 | 温湿度、CO₂ 等环境参数 | 烟雾 | 用途 |
 | --- | --- | --- | --- |
 | `demo` | 模拟数据 | 模拟数据 | 无硬件检查页面与告警流程 |
-| `hybrid`（默认） | ESP32 上报，未收到则为空 | 模拟数据 | 等待 MQ-2 接入期间 |
-| `live` | ESP32 上报 | ESP32 上报 | 硬件联调完成后 |
+| `hybrid`（默认） | ESP32 上报，未收到则为空 | 模拟数据 | 真实环境与模拟烟雾联调 |
+| `live` | ESP32 上报 | ESP32 上报 | 完整硬件采集与联调 |
 
-在“模拟与联调”页面切换模式会影响同一后台的所有页面。重新启动后使用 `FACTORY_MODE`，不会自动恢复上次页面选择。
+在“模拟与联调”页面切换模式会影响同一后台的所有页面。新固件在线时，模拟异常也会驱动真实 LED 和蜂鸣器；本地异常优先，不会被平台正常状态压掉。重新启动后使用 `FACTORY_MODE`，不会自动恢复上次页面选择。
 
 常用配置：`FACTORY_MQTT_HOST`、`FACTORY_MQTT_PORT`、`FACTORY_WEB_HOST`、`FACTORY_WEB_PORT`、`FACTORY_DATA_DIR`。MQTT 报文、演示阈值和 QQ 邮件设置见 [接入与配置说明](docs/CONFIGURATION.md)。
 
