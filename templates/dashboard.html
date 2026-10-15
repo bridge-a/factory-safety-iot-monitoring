@@ -1,4 +1,4 @@
-{% from 'components.html' import icon, video, gauges, linkage, risk, trend, event_table %}
+{% from 'components.html' import icon, brand_symbol, video, gauges, linkage, risk, trend, event_table %}
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="control-token" content="{{ control_token }}"><meta name="color-scheme" content="light">
@@ -8,7 +8,7 @@
 <script defer src="{{ url_for('static', filename='vendor/echarts.min.js') }}"></script><script defer src="{{ url_for('static', filename='js/dashboard.js') }}"></script></head>
 <body data-page="{{ page }}">
 <aside class="sidebar">
-<a class="brand" href="/" aria-label="工厂监控首页"><span class="brand-mark">{{ icon('factory') }}</span><strong>工厂安全监控</strong><small>FACTORY MONITOR</small></a>
+<a class="brand" href="/" aria-label="工厂监控首页"><span class="brand-mark">{{ brand_symbol() }}</span><strong>工厂安全监控</strong><small>FACTORY MONITOR</small></a>
 <nav aria-label="主导航">{% for key, title in titles.items() %}<a href="{{ '/' if key == 'overview' else '/' + key }}" aria-label="{{ title }}" title="{{ title }}" class="nav-item {{ 'active' if page == key else '' }}" {% if page == key %}aria-current="page"{% endif %}>{{ icon(key) }}<span>{{ title }}</span></a>{% endfor %}</nav>
 <div class="sidebar-scene" aria-hidden="true"><svg viewBox="0 0 180 165"><path d="M0 147h180M12 147V68l40 28V63l49 30V23h21v74l46-22v72M101 23V10h21v13M22 126h15v-12H22Zm41 0h15v-12H63Zm69 0h15v-12h-15ZM5 158h168M12 68V51h16v28"/></svg></div>
 <div class="sidebar-footer"><span class="dot"></span>工厂模拟区 · 01<small>物联网系统综合课程设计</small></div>

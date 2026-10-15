@@ -57,7 +57,7 @@ def main():
                 expect(page.locator('[data-scenario="normal"]')).to_have_attribute('aria-pressed','true')
                 expect(page.locator('#modeSelect')).to_have_value('demo')
                 expect(page.locator('#mailLinkState')).to_have_text('未启用')
-                expect(page.locator('#simSoundState')).to_have_text('待联调')
+                expect(page.locator('#simSoundState')).to_have_text('等待上报')
                 expect(page.locator('#visionIndicatorText')).to_have_text('明火检测未启用')
                 layout = page.evaluate('''() => ({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,
                     listBottom:document.querySelector('.sim-scenario-list').getBoundingClientRect().bottom,

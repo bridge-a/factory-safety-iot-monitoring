@@ -20,7 +20,7 @@
         {% set equipment = [
           ('sht31', 'SHT31', '温度 · 相对湿度', 'temp_c', [('temp_c', '°C'), ('rh', '%RH')], '温湿度由同一器件采集'),
           ('scd41', 'SCD41', 'CO₂ 浓度', 'co2_ppm', [('co2_ppm', 'ppm')], '用于气体异常演示'),
-          ('mq2', 'MQ-2', '烟雾相对值', 'smoke_raw', [('smoke_raw', 'ADC')], '接入后需预热与阈值标定'),
+          ('mq2', 'MQ-2', '烟雾相对值', 'smoke_raw', [('smoke_raw', 'ADC')], '使用前需预热，阈值按实测调整'),
           ('bh1750', 'BH1750', '环境光照', 'light', [('lux', 'lux')], '辅助读数，不参与安全告警')
         ] %}
         {% for key, name, purpose, symbol, readings, note in equipment %}
@@ -29,7 +29,7 @@
             <td><div class="device-cell-stack">{% for metric, unit in readings %}<span class="device-source" data-device-source="{{ metric }}" data-state="unknown">等待读取</span>{% endfor %}</div></td><td class="device-note">{{ note }}</td></tr>
         {% endfor %}
           <tr data-device-row="vision"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('vision') }}</span><div><strong>USB 摄像头</strong><small>明火视觉检测</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceVisionState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note"><a class="devices-text-link" href="/vision">查看明火检测 {{ icon('arrow-right') }}</a></td></tr>
-          <tr data-device-row="sound"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('alerts') }}</span><div><strong>蜂鸣器 / LED</strong><small>本地声光报警</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceSoundState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note">实物动作需接线后验证</td></tr>
+          <tr data-device-row="sound"><th scope="row"><div class="device-item-name"><span class="device-item-symbol">{{ icon('buzzer') }}</span><div><strong>蜂鸣器 / LED</strong><small>本地声光报警</small></div></div></th><td><span class="device-no-reading">—</span></td><td><span id="deviceSoundState" class="device-source" data-state="unknown">等待读取</span></td><td class="device-note">随告警等级联动，恢复后自动待命</td></tr>
         </tbody></table>
       </div>
       <p class="devices-data-note" id="deviceDataNote">模拟读数仅用于功能演示与联调，不代表硬件已连接。</p>

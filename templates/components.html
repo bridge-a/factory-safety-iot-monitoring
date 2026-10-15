@@ -14,6 +14,7 @@
 {% elif name == 'shield' %}<path d="m12 2 9 4v6c0 5-9 10-9 10S3 17 3 12V6ZM12 7v6m0 4v.1"/>
 {% elif name == 'mail' %}<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 5 10 8L22 5"/>
 {% elif name == 'light' %}<path d="M8 17h8M9 21h6M8 14a6 6 0 1 1 8 0v3H8Z"/>
+{% elif name == 'buzzer' %}<path d="M4 9h4l5-4v14l-5-4H4ZM17 9a5 5 0 0 1 0 6m3-9a9 9 0 0 1 0 12"/>
 {% elif name == 'download' %}<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>
 {% elif name == 'copy' %}<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/>
 {% elif name == 'database' %}<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>
@@ -30,6 +31,16 @@
 {% elif name == 'refresh' %}<path d="M20 8a8 8 0 0 0-14-3L3 8m0-6v6h6M4 16a8 8 0 0 0 14 3l3-3m0 6v-6h-6"/>
 {% elif name == 'unplug' %}<path d="m3 3 18 18M9 4v3m6-3v3M6 7h12v5a6 6 0 0 1-6 6m-6-6a6 6 0 0 0 6 6v4"/>
 {% endif %}</svg>
+{%- endmacro %}
+
+{% macro brand_symbol() -%}
+<svg class="brand-symbol" viewBox="0 0 48 48" aria-hidden="true">
+  <path class="brand-building" d="M8 37V22l11 6v-8l11 6V11h8v26Z"/>
+  <path class="brand-detail" d="M30 16h8M8 37h32"/>
+  <path class="brand-windows" d="M13 32h3m6 0h3m6 0h3"/>
+  <circle class="brand-node" cx="12" cy="12" r="2"/>
+  <path class="brand-signal" d="M12 6a6 6 0 0 1 6 6m-6-11a11 11 0 0 1 11 11"/>
+</svg>
 {%- endmacro %}
 
 {% macro video(large=false) %}
@@ -71,8 +82,8 @@
 <section class="panel linkage-panel">
   <div class="panel-heading"><h2>{{ icon('simulation') }}告警联动状态</h2><a href="/devices">设备详情 ›</a></div>
   <div class="linkage-grid">
-    <div>{{ icon('alerts') }}<span>蜂鸣器</span><strong id="overviewBuzzerState" class="muted">等待读取</strong></div>
-    <div>{{ icon('light') }}<span>指示灯 LED</span><strong id="overviewLedState" class="muted">等待读取</strong></div>
+    <div data-linkage-device="buzzer" data-level="gray">{{ icon('buzzer') }}<span>蜂鸣器</span><strong id="overviewBuzzerState" class="muted">等待读取</strong></div>
+    <div data-linkage-device="led" data-level="gray">{{ icon('light') }}<span>指示灯 LED</span><strong id="overviewLedState" class="muted">等待读取</strong></div>
     <div>{{ icon('overview') }}<span>网页弹窗</span><strong id="popupState">等待连接</strong></div>
     <div>{{ icon('mail') }}<span>QQ 邮件</span><strong id="mailLinkState">未启用</strong></div>
   </div>
